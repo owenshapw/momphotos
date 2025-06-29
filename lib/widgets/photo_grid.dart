@@ -151,35 +151,6 @@ class PhotoCard extends StatelessWidget {
                   ),
                 ),
               ),
-              
-              // 标签覆盖层
-              if (photo.year != null)
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.7),
-                        ],
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(8),
-                    child: Text(
-                      '${photo.year}年',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),

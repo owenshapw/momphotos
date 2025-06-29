@@ -35,6 +35,77 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
     if (_currentIndex == -1) _currentIndex = 0;
     
     _pageController = PageController(initialPage: _currentIndex);
+    
+    // 预加载相邻的照片
+    _preloadAdjacentImages(allPhotos);
+  }
+
+  // 预加载相邻的照片
+  void _preloadAdjacentImages(List<Photo> allPhotos) {
+    if (allPhotos.isEmpty) return;
+    
+    // 预加载当前照片和相邻的照片
+    final indicesToPreload = <int>[];
+    
+    // 当前照片
+    indicesToPreload.add(_currentIndex);
+    
+    // 前一张照片
+    if (_currentIndex > 0) {
+      indicesToPreload.add(_currentIndex - 1);
+    }
+    
+    // 后一张照片
+    if (_currentIndex < allPhotos.length - 1) {
+      indicesToPreload.add(_currentIndex + 1);
+    }
+    
+    // 预加载图片
+    for (final index in indicesToPreload) {
+      if (index >= 0 && index < allPhotos.length) {
+        precacheImage(
+          CachedNetworkImageProvider(
+            allPhotos[index].url,
+            cacheKey: allPhotos[index].id,
+          ),
+          context,
+        );
+      }
+    }
+  }
+
+  // 页面变化时预加载相邻照片
+  void _preloadAdjacentImagesOnPageChange(List<Photo> allPhotos, int index) {
+    if (allPhotos.isEmpty) return;
+    
+    // 预加载当前照片和相邻的照片
+    final indicesToPreload = <int>[];
+    
+    // 当前照片
+    indicesToPreload.add(index);
+    
+    // 前一张照片
+    if (index > 0) {
+      indicesToPreload.add(index - 1);
+    }
+    
+    // 后一张照片
+    if (index < allPhotos.length - 1) {
+      indicesToPreload.add(index + 1);
+    }
+    
+    // 预加载图片
+    for (final index in indicesToPreload) {
+      if (index >= 0 && index < allPhotos.length) {
+        precacheImage(
+          CachedNetworkImageProvider(
+            allPhotos[index].url,
+            cacheKey: allPhotos[index].id,
+          ),
+          context,
+        );
+      }
+    }
   }
 
   @override
@@ -101,18 +172,18 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                   );
                   
                   // 如果编辑成功，刷新照片数据
-                  if (result == true) {
+                  if (result == true && context.mounted) {
                     context.read<PhotoProvider>().loadPhotos();
                   }
                 },
               ),
             ],
           ),
-          body: RawKeyboardListener(
+          body: KeyboardListener(
             focusNode: FocusNode(),
             autofocus: true,
-            onKey: (event) {
-              if (event is RawKeyDownEvent) {
+            onKeyEvent: (event) {
+              if (event is KeyDownEvent) {
                 if (event.logicalKey.keyLabel == 'Arrow Left' && _currentIndex > 0) {
                   _pageController.previousPage(
                     duration: const Duration(milliseconds: 300),
@@ -138,18 +209,181 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                           setState(() {
                             _currentIndex = index;
                           });
+                          
+                          // 页面变化时预加载相邻照片
+                          _preloadAdjacentImagesOnPageChange(allPhotos, index);
                         },
                         itemCount: allPhotos.length,
+                        physics: _currentIndex == 0 && allPhotos.length == 1
+                            ? const NeverScrollableScrollPhysics()
+                            : const ClampingScrollPhysics(),
                         itemBuilder: (context, index) {
                           final photo = allPhotos[index];
                           return Stack(
                             children: [
-                              PhotoView(
-                                imageProvider: CachedNetworkImageProvider(photo.url),
-                                minScale: PhotoViewComputedScale.contained,
-                                maxScale: PhotoViewComputedScale.covered * 2,
-                                backgroundDecoration: const BoxDecoration(
-                                  color: Colors.black,
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 300),
+                                child: PhotoView(
+                                  key: ValueKey(photo.id),
+                                  imageProvider: CachedNetworkImageProvider(
+                                    photo.url,
+                                    cacheKey: photo.id,
+                                  ),
+                                  minScale: PhotoViewComputedScale.contained,
+                                  maxScale: PhotoViewComputedScale.covered * 2,
+                                  backgroundDecoration: const BoxDecoration(
+                                    color: Colors.black,
+                                  ),
+                                  loadingBuilder: (context, event) {
+                                    return Container(
+                                      color: Colors.black,
+                                      child: Stack(
+                                        children: [
+                                          // 背景渐变
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [
+                                                  Colors.grey[900]!,
+                                                  Colors.black,
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          // 加载动画
+                                          Center(
+                                            child: Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                // 优雅的加载动画
+                                                Container(
+                                                  width: 60,
+                                                  height: 60,
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                      color: Colors.white.withValues(alpha: 0.3),
+                                                      width: 2,
+                                                    ),
+                                                  ),
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 3,
+                                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                                      Colors.white.withValues(alpha: 0.8),
+                                                    ),
+                                                    value: event?.expectedTotalBytes != null
+                                                        ? event!.cumulativeBytesLoaded / event.expectedTotalBytes!
+                                                        : null,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 16),
+                                                // 加载文字
+                                                Text(
+                                                  event?.expectedTotalBytes != null
+                                                      ? '加载中 ${((event!.cumulativeBytesLoaded / event.expectedTotalBytes!) * 100).toInt()}%'
+                                                      : '加载中...',
+                                                  style: TextStyle(
+                                                    color: Colors.white.withValues(alpha: 0.7),
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          // 照片占位符
+                                          if (event?.expectedTotalBytes == null)
+                                            Center(
+                                              child: Container(
+                                                width: 200,
+                                                height: 200,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey[800],
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  border: Border.all(
+                                                    color: Colors.white.withValues(alpha: 0.1),
+                                                    width: 1,
+                                                  ),
+                                                ),
+                                                child: Icon(
+                                                  Icons.photo,
+                                                  size: 80,
+                                                  color: Colors.white.withValues(alpha: 0.3),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: Colors.black,
+                                      child: Stack(
+                                        children: [
+                                          // 背景渐变
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [
+                                                  Colors.grey[900]!,
+                                                  Colors.black,
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          // 错误内容
+                                          Center(
+                                            child: Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Container(
+                                                  padding: const EdgeInsets.all(20),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.red.withValues(alpha: 0.1),
+                                                    borderRadius: BorderRadius.circular(16),
+                                                    border: Border.all(
+                                                      color: Colors.red.withValues(alpha: 0.3),
+                                                      width: 1,
+                                                    ),
+                                                  ),
+                                                  child: Column(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.error_outline,
+                                                        color: Colors.red[300],
+                                                        size: 48,
+                                                      ),
+                                                      const SizedBox(height: 16),
+                                                      Text(
+                                                        '加载失败',
+                                                        style: TextStyle(
+                                                          color: Colors.red[300],
+                                                          fontSize: 16,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 8),
+                                                      Text(
+                                                        '请检查网络连接',
+                                                        style: TextStyle(
+                                                          color: Colors.white.withValues(alpha: 0.6),
+                                                          fontSize: 14,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
                             ],

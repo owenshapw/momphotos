@@ -34,6 +34,23 @@ class PhotoProvider with ChangeNotifier {
       grouped[decade]!.add(photo);
     }
     
+    // 在每个年代分组内按拍摄日期排序（从近到远）
+    for (final photos in grouped.values) {
+      photos.sort((a, b) {
+        // 优先按拍摄年份排序
+        if (a.year != null && b.year != null) {
+          return b.year!.compareTo(a.year!); // 降序，最新的在前
+        } else if (a.year != null) {
+          return -1; // 有年份的排在前面
+        } else if (b.year != null) {
+          return 1;
+        } else {
+          // 如果都没有年份，按创建时间排序
+          return b.createdAt.compareTo(a.createdAt);
+        }
+      });
+    }
+    
     // 过滤掉没有照片的年代分组
     final nonEmptyGrouped = Map<String, List<Photo>>.fromEntries(
       grouped.entries.where((entry) => entry.value.isNotEmpty),
@@ -82,6 +99,21 @@ class PhotoProvider with ChangeNotifier {
         // 过滤掉已删除的照片
         _photos = await _filterValidPhotos(allPhotos);
         
+        // 按拍摄日期排序（从近到远）
+        _photos.sort((a, b) {
+          // 优先按拍摄年份排序
+          if (a.year != null && b.year != null) {
+            return b.year!.compareTo(a.year!); // 降序，最新的在前
+          } else if (a.year != null) {
+            return -1; // 有年份的排在前面
+          } else if (b.year != null) {
+            return 1;
+          } else {
+            // 如果都没有年份，按创建时间排序
+            return b.createdAt.compareTo(a.createdAt);
+          }
+        });
+        
         _applySearchFilter();
         _hasLoaded = true; // 标记为已加载
         notifyListeners();
@@ -117,7 +149,9 @@ class PhotoProvider with ChangeNotifier {
         }
       } catch (e) {
         // 如果图片加载失败，说明照片可能已被删除
-        print('照片已删除或无法访问: ${photo.url}');
+        if (kDebugMode) {
+          debugPrint('照片已删除或无法访问: ${photo.url}');
+        }
       }
       return null;
     });
@@ -201,6 +235,43 @@ class PhotoProvider with ChangeNotifier {
     }
   }
 
+  // 按拍摄日期顺序插入照片
+  void _insertPhotoInOrder(Photo photo) {
+    // 找到正确的插入位置
+    int insertIndex = 0;
+    for (int i = 0; i < _photos.length; i++) {
+      final existingPhoto = _photos[i];
+      
+      // 比较拍摄年份
+      if (photo.year != null && existingPhoto.year != null) {
+        if (photo.year! >= existingPhoto.year!) {
+          insertIndex = i;
+          break;
+        }
+      } else if (photo.year != null) {
+        // 新照片有年份，现有照片没有年份，新照片排在前面
+        insertIndex = i;
+        break;
+      } else if (existingPhoto.year != null) {
+        // 新照片没有年份，现有照片有年份，继续查找
+        continue;
+      } else {
+        // 都没有年份，按创建时间比较
+        if (photo.createdAt.isAfter(existingPhoto.createdAt)) {
+          insertIndex = i;
+          break;
+        }
+      }
+      
+      // 如果到达列表末尾，插入到最后
+      if (i == _photos.length - 1) {
+        insertIndex = _photos.length;
+      }
+    }
+    
+    _photos.insert(insertIndex, photo);
+  }
+
   // 上传照片
   Future<void> uploadPhoto({
     required String imagePath,
@@ -219,7 +290,8 @@ class PhotoProvider with ChangeNotifier {
         description: description,
       );
       
-      _photos.insert(0, photo); // 添加到列表开头
+      // 按拍摄日期顺序插入照片
+      _insertPhotoInOrder(photo);
       _applySearchFilter();
       notifyListeners();
     } catch (e) {
@@ -252,6 +324,22 @@ class PhotoProvider with ChangeNotifier {
       final index = _photos.indexWhere((photo) => photo.id == photoId);
       if (index != -1) {
         _photos[index] = updatedPhoto;
+        
+        // 重新排序以确保正确的顺序
+        _photos.sort((a, b) {
+          // 优先按拍摄年份排序
+          if (a.year != null && b.year != null) {
+            return b.year!.compareTo(a.year!); // 降序，最新的在前
+          } else if (a.year != null) {
+            return -1; // 有年份的排在前面
+          } else if (b.year != null) {
+            return 1;
+          } else {
+            // 如果都没有年份，按创建时间排序
+            return b.createdAt.compareTo(a.createdAt);
+          }
+        });
+        
         _applySearchFilter();
         notifyListeners();
       }

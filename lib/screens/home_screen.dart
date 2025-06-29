@@ -4,6 +4,7 @@ import '../services/photo_provider.dart';
 import '../widgets/photo_grid.dart';
 import '../widgets/search_bar.dart';
 import 'upload_screen.dart';
+import 'batch_upload_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -200,18 +201,41 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const UploadScreen(),
-            ),
-          );
-        },
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add_a_photo),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          // 批量上传按钮
+          FloatingActionButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const BatchUploadScreen(),
+                ),
+              );
+            },
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+            heroTag: "batch_upload",
+            child: const Icon(Icons.photo_library),
+          ),
+          const SizedBox(height: 16),
+          // 单张上传按钮
+          FloatingActionButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const UploadScreen(),
+                ),
+              );
+            },
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Colors.white,
+            heroTag: "single_upload",
+            child: const Icon(Icons.add_a_photo),
+          ),
+        ],
       ),
     );
   }
