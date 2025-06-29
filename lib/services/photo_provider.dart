@@ -62,7 +62,7 @@ class PhotoProvider with ChangeNotifier {
   }
 
   // 加载所有照片
-  Future<void> loadPhotos({bool checkDeletedPhotos = false, bool forceRefresh = false}) async {
+  Future<void> loadPhotos({bool forceRefresh = false}) async {
     // 如果已经加载过且不强制刷新，直接返回
     if (_hasLoaded && !forceRefresh && _photos.isNotEmpty) {
       return;
@@ -77,15 +77,14 @@ class PhotoProvider with ChangeNotifier {
     
     while (retryCount < maxRetries) {
       try {
-        _photos = await ApiService.getPhotos();
+        final allPhotos = await ApiService.getPhotos();
+        
+        // 过滤掉已删除的照片
+        _photos = await _filterValidPhotos(allPhotos);
+        
         _applySearchFilter();
         _hasLoaded = true; // 标记为已加载
         notifyListeners();
-        
-        // 只在需要时检测已删除的照片
-        if (checkDeletedPhotos) {
-          await filterDeletedPhotos();
-        }
         
         return; // 成功则退出
       } catch (e) {
@@ -102,6 +101,38 @@ class PhotoProvider with ChangeNotifier {
     }
     
     _setLoading(false);
+  }
+
+  // 过滤有效的照片（未删除的照片）
+  Future<List<Photo>> _filterValidPhotos(List<Photo> photos) async {
+    final validPhotos = <Photo>[];
+    
+    // 使用并发请求，提高检测速度
+    final futures = photos.map((photo) async {
+      try {
+        // 尝试加载图片来检测是否还存在
+        final response = await http.head(Uri.parse(photo.url));
+        if (response.statusCode == 200) {
+          return photo;
+        }
+      } catch (e) {
+        // 如果图片加载失败，说明照片可能已被删除
+        print('照片已删除或无法访问: ${photo.url}');
+      }
+      return null;
+    });
+    
+    // 等待所有请求完成
+    final results = await Future.wait(futures);
+    
+    // 过滤掉null结果
+    for (final result in results) {
+      if (result != null) {
+        validPhotos.add(result);
+      }
+    }
+    
+    return validPhotos;
   }
 
   // 搜索照片
@@ -249,42 +280,6 @@ class PhotoProvider with ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
-  }
-
-  // 检测并过滤掉已删除的照片
-  Future<void> filterDeletedPhotos() async {
-    final validPhotos = <Photo>[];
-    
-    // 使用并发请求，提高检测速度
-    final futures = _photos.map((photo) async {
-      try {
-        // 尝试加载图片来检测是否还存在
-        final response = await http.head(Uri.parse(photo.url));
-        if (response.statusCode == 200) {
-          return photo;
-        }
-      } catch (e) {
-        // 如果图片加载失败，说明照片可能已被删除
-        print('照片已删除或无法访问: ${photo.url}');
-      }
-      return null;
-    });
-    
-    // 等待所有请求完成
-    final results = await Future.wait(futures);
-    
-    // 过滤掉null结果
-    for (final result in results) {
-      if (result != null) {
-        validPhotos.add(result);
-      }
-    }
-    
-    if (validPhotos.length != _photos.length) {
-      _photos = validPhotos;
-      _applySearchFilter();
-      notifyListeners();
-    }
   }
 
   // 添加搜索历史

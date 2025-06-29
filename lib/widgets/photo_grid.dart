@@ -150,29 +150,6 @@ class PhotoCard extends StatelessWidget {
                     child: CircularProgressIndicator(),
                   ),
                 ),
-                errorWidget: (context, url, error) => Container(
-                  color: Colors.grey[100],
-                  child: const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.broken_image,
-                          color: Colors.grey,
-                          size: 32,
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          '照片已删除',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
               ),
               
               // 标签覆盖层
