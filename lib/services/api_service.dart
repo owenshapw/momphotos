@@ -5,7 +5,9 @@ import '../models/photo.dart';
 
 class ApiService {
   // 替换为你的 Flask 后端 URL
-  static const String baseUrl = 'http://192.168.2.100:5003';
+  // 注意：请确认 Render 部署成功后的正确 URL
+  static const String baseUrl = 'https://momphotos.onrender.com';
+  // 如果上面的 URL 不工作，请使用 Render 控制台中的实际 URL
   
   // 获取所有照片
   static Future<List<Photo>> getPhotos() async {
@@ -74,7 +76,13 @@ class ApiService {
         final data = json.decode(responseData);
         return Photo.fromJson(data);
       } else {
-        throw Exception('Failed to upload photo: ${response.statusCode}');
+        // 尝试解析错误信息
+        try {
+          final errorData = json.decode(responseData);
+          throw Exception('Upload failed: ${errorData['error'] ?? 'Unknown error'} (Status: ${response.statusCode})');
+        } catch (e) {
+          throw Exception('Upload failed: $responseData (Status: ${response.statusCode})');
+        }
       }
     } catch (e) {
       throw Exception('Upload error: $e');

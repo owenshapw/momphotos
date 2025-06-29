@@ -90,22 +90,25 @@ def upload_photo():
             file_extension = filename.rsplit('.', 1)[1].lower()
             unique_filename = f"{uuid.uuid4()}.{file_extension}"
             
-            # 保存文件到本地临时目录
-            file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
-            file.save(file_path)
-            
-            # 上传到Supabase Storage
-            bucket_name = 'photos'
-            storage_path = f"photos/{unique_filename}"
-            
-            with open(file_path, 'rb') as f:
-                supabase.storage.from_(bucket_name).upload(storage_path, f.read())
-            
-            # 获取公开URL
-            public_url = supabase.storage.from_(bucket_name).get_public_url(storage_path)
-            
-            # 删除本地临时文件
-            os.remove(file_path)
+            try:
+                # 直接读取文件内容到内存，避免文件系统权限问题
+                file_content = file.read()
+                print(f"文件大小: {len(file_content)} bytes")
+                
+                # 上传到Supabase Storage
+                bucket_name = 'photos'
+                storage_path = f"photos/{unique_filename}"
+                
+                supabase.storage.from_(bucket_name).upload(storage_path, file_content)
+                print(f"文件已上传到 Supabase Storage: {storage_path}")
+                
+                # 获取公开URL
+                public_url = supabase.storage.from_(bucket_name).get_public_url(storage_path)
+                print(f"公开URL: {public_url}")
+                
+            except Exception as storage_error:
+                print(f"Storage 错误: {storage_error}")
+                return jsonify({'error': f'Storage error: {storage_error}'}), 500
             
             # 解析请求数据
             tags = json.loads(request.form.get('tags', '[]'))
@@ -123,14 +126,20 @@ def upload_photo():
                 'created_at': datetime.now().isoformat()
             }
             
-            # 保存到数据库
-            supabase.table('photos').insert(photo_data).execute()
+            try:
+                # 保存到数据库
+                supabase.table('photos').insert(photo_data).execute()
+                print(f"照片记录已保存到数据库: {photo_data['id']}")
+            except Exception as db_error:
+                print(f"数据库错误: {db_error}")
+                return jsonify({'error': f'Database error: {db_error}'}), 500
             
             return jsonify(photo_data)
         
         return jsonify({'error': '不支持的文件类型'}), 400
         
     except Exception as e:
+        print(f"上传错误: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/tag', methods=['POST'])

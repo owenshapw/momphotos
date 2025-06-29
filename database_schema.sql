@@ -18,8 +18,14 @@ CREATE INDEX idx_photos_year ON photos(year);
 -- 启用行级安全策略
 ALTER TABLE photos ENABLE ROW LEVEL SECURITY;
 
--- 创建策略（允许所有操作，实际项目中应该根据用户权限设置）
-CREATE POLICY "Allow all operations" ON photos FOR ALL USING (true);
+-- 删除现有策略（如果存在）
+DROP POLICY IF EXISTS "Allow all operations" ON photos;
+
+-- 创建新的策略（允许所有操作）
+CREATE POLICY "Allow all operations" ON photos 
+    FOR ALL 
+    USING (true) 
+    WITH CHECK (true);
 
 -- 创建更新时间触发器
 CREATE OR REPLACE FUNCTION update_updated_at_column()
