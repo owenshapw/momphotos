@@ -131,13 +131,50 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                         itemCount: allPhotos.length,
                         itemBuilder: (context, index) {
                           final photo = allPhotos[index];
-                          return PhotoView(
-                            imageProvider: CachedNetworkImageProvider(photo.url),
-                            minScale: PhotoViewComputedScale.contained,
-                            maxScale: PhotoViewComputedScale.covered * 2,
-                            backgroundDecoration: const BoxDecoration(
-                              color: Colors.black,
-                            ),
+                          return Stack(
+                            children: [
+                              PhotoView(
+                                imageProvider: CachedNetworkImageProvider(photo.url),
+                                minScale: PhotoViewComputedScale.contained,
+                                maxScale: PhotoViewComputedScale.covered * 2,
+                                backgroundDecoration: const BoxDecoration(
+                                  color: Colors.black,
+                                ),
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: Colors.black,
+                                    child: const Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.broken_image,
+                                            color: Colors.white,
+                                            size: 64,
+                                          ),
+                                          SizedBox(height: 16),
+                                          Text(
+                                            '照片已删除',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 18,
+                                            ),
+                                          ),
+                                          SizedBox(height: 8),
+                                          Text(
+                                            '无法显示此照片',
+                                            style: TextStyle(
+                                              color: Colors.grey,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
                           );
                         },
                       ),

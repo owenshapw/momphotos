@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/photo.dart';
 import 'api_service.dart';
+import 'package:http/http.dart' as http;
 
 class PhotoProvider with ChangeNotifier {
   List<Photo> _photos = [];
@@ -72,6 +73,10 @@ class PhotoProvider with ChangeNotifier {
         _photos = await ApiService.getPhotos();
         _applySearchFilter();
         notifyListeners();
+        
+        // 检测并过滤掉已删除的照片
+        await filterDeletedPhotos();
+        
         return; // 成功则退出
       } catch (e) {
         retryCount++;
@@ -232,6 +237,30 @@ class PhotoProvider with ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  // 检测并过滤掉已删除的照片
+  Future<void> filterDeletedPhotos() async {
+    final validPhotos = <Photo>[];
+    
+    for (final photo in _photos) {
+      try {
+        // 尝试加载图片来检测是否还存在
+        final response = await http.head(Uri.parse(photo.url));
+        if (response.statusCode == 200) {
+          validPhotos.add(photo);
+        }
+      } catch (e) {
+        // 如果图片加载失败，说明照片可能已被删除
+        print('照片已删除或无法访问: ${photo.url}');
+      }
+    }
+    
+    if (validPhotos.length != _photos.length) {
+      _photos = validPhotos;
+      _applySearchFilter();
+      notifyListeners();
+    }
   }
 
   // 添加搜索历史

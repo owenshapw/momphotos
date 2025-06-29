@@ -32,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'ShaPhoto',
+          '妈妈的照片',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 24,
@@ -41,6 +41,64 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.cleaning_services),
+            onPressed: () async {
+              // 显示确认对话框
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('清理已删除照片'),
+                  content: const Text('这将检测并移除所有已删除的照片，可能需要一些时间。'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('取消'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('确认'),
+                    ),
+                  ],
+                ),
+              );
+              
+              if (confirmed == true) {
+                // 显示加载指示器
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => const AlertDialog(
+                    content: Row(
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(width: 16),
+                        Text('正在清理...'),
+                      ],
+                    ),
+                  ),
+                );
+                
+                // 执行清理
+                await context.read<PhotoProvider>().filterDeletedPhotos();
+                
+                // 关闭加载对话框
+                if (mounted) {
+                  Navigator.pop(context);
+                  
+                  // 显示完成提示
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('清理完成'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [

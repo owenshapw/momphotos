@@ -1,11 +1,11 @@
 {
-    "name": "shaphoto",
-    "short_name": "shaphoto",
+    "name": "妈妈的照片",
+    "short_name": "妈妈的照片",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "妈妈的照片管理应用",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
