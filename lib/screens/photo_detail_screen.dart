@@ -265,7 +265,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.5),
+                                    color: Colors.black.withValues(alpha: 0.5),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: const Icon(
@@ -291,7 +291,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.5),
+                                    color: Colors.black.withValues(alpha: 0.5),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: const Icon(
@@ -385,7 +385,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      Colors.white.withOpacity(0.1 * value),
+                      Colors.white.withValues(alpha: 0.1 * value),
                       Colors.transparent,
                     ],
                   ),
@@ -403,7 +403,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                 // 背景环
                 CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    Colors.white.withOpacity(0.2),
+                    Colors.white.withValues(alpha: 0.2),
                   ),
                   value: 1.0,
                   strokeWidth: 4,
@@ -434,7 +434,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
           Text(
             '正在加载照片...',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(alpha: 0.8),
               fontSize: 14,
             ),
           ),
@@ -466,7 +466,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
           Text(
             '请检查网络连接后重试',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 14,
             ),
           ),

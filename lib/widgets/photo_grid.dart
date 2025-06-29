@@ -145,11 +145,30 @@ class PhotoCard extends StatelessWidget {
                 imageUrl: photo.thumbnailUrl ?? photo.url,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => Container(
-                  color: Colors.grey[200],
-                  child: const Center(
-                    child: CircularProgressIndicator(),
+                  color: Colors.grey[50],
+                    child: Center(
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.photo,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
-                ),
+                ) ,
               ),
             ],
           ),
