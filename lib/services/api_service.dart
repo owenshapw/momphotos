@@ -113,11 +113,12 @@ class ApiService {
     }
   }
 
-  // 为照片添加或更新标签
+  // 为照片添加或更新标签和描述
   static Future<Photo> updatePhotoTags({
     required String photoId,
     required List<String> tags,
     int? year,
+    String? description,
   }) async {
     try {
       final response = await http.post(
@@ -127,6 +128,7 @@ class ApiService {
           'photo_id': photoId,
           'tags': tags,
           if (year != null) 'year': year,
+          if (description != null) 'description': description,
         }),
       ).timeout(timeout);
 
@@ -134,7 +136,7 @@ class ApiService {
         final data = json.decode(response.body);
         return Photo.fromJson(data);
       } else {
-        throw Exception('更新标签失败: ${response.statusCode}');
+        throw Exception('更新失败: ${response.statusCode}');
       }
     } on TimeoutException {
       throw Exception('请求超时，请检查网络连接');

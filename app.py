@@ -165,7 +165,7 @@ def upload_photo():
 
 @app.route('/tag', methods=['POST'])
 def update_photo_tags():
-    """更新照片标签"""
+    """更新照片标签和描述"""
     if not supabase:
         return jsonify({'error': 'Supabase未配置'}), 500
     
@@ -174,14 +174,17 @@ def update_photo_tags():
         photo_id = data.get('photo_id')
         tags = data.get('tags', [])
         year = data.get('year')
+        description = data.get('description')
         
         if not photo_id:
             return jsonify({'error': '缺少照片ID'}), 400
         
-        # 更新照片标签
+        # 更新照片标签和描述
         update_data = {'tags': tags}
         if year:
             update_data['year'] = int(year)
+        if description is not None:  # 允许空字符串
+            update_data['description'] = description
         
         response = supabase.table('photos').update(update_data).eq('id', photo_id).execute()
         

@@ -13,7 +13,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (context) => PhotoProvider(),
+      create: (context) {
+        final provider = PhotoProvider();
+        // 预加载照片数据
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          provider.loadPhotos();
+        });
+        return provider;
+      },
       child: MaterialApp(
         title: '妈妈的照片',
         theme: ThemeData(

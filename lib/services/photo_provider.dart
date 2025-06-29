@@ -11,6 +11,7 @@ class PhotoProvider with ChangeNotifier {
   String? _error;
   String _searchQuery = '';
   List<String> _searchHistory = [];
+  bool _hasLoaded = false; // 添加加载状态标记
 
   // Getters
   List<Photo> get photos => _photos;
@@ -19,6 +20,7 @@ class PhotoProvider with ChangeNotifier {
   String? get error => _error;
   String get searchQuery => _searchQuery;
   List<String> get searchHistory => List.unmodifiable(_searchHistory);
+  bool get hasLoaded => _hasLoaded;
 
   // 按年代分组的照片
   Map<String, List<Photo>> get photosByDecade {
@@ -60,7 +62,12 @@ class PhotoProvider with ChangeNotifier {
   }
 
   // 加载所有照片
-  Future<void> loadPhotos() async {
+  Future<void> loadPhotos({bool checkDeletedPhotos = false, bool forceRefresh = false}) async {
+    // 如果已经加载过且不强制刷新，直接返回
+    if (_hasLoaded && !forceRefresh && _photos.isNotEmpty) {
+      return;
+    }
+    
     _setLoading(true);
     _error = null;
     
@@ -72,10 +79,13 @@ class PhotoProvider with ChangeNotifier {
       try {
         _photos = await ApiService.getPhotos();
         _applySearchFilter();
+        _hasLoaded = true; // 标记为已加载
         notifyListeners();
         
-        // 检测并过滤掉已删除的照片
-        await filterDeletedPhotos();
+        // 只在需要时检测已删除的照片
+        if (checkDeletedPhotos) {
+          await filterDeletedPhotos();
+        }
         
         return; // 成功则退出
       } catch (e) {
@@ -85,8 +95,8 @@ class PhotoProvider with ChangeNotifier {
           _error = e.toString();
           notifyListeners();
         } else {
-          // 等待一段时间后重试
-          await Future.delayed(Duration(seconds: retryCount * 2));
+          // 减少重试间隔，提高响应速度
+          await Future.delayed(Duration(seconds: retryCount));
         }
       }
     }
@@ -189,11 +199,12 @@ class PhotoProvider with ChangeNotifier {
     }
   }
 
-  // 更新照片标签
+  // 更新照片标签和描述
   Future<void> updatePhotoTags({
     required String photoId,
     required List<String> tags,
     int? year,
+    String? description,
   }) async {
     _setLoading(true);
     _error = null;
@@ -203,6 +214,7 @@ class PhotoProvider with ChangeNotifier {
         photoId: photoId,
         tags: tags,
         year: year,
+        description: description,
       );
       
       // 更新照片列表中的对应照片
@@ -243,16 +255,28 @@ class PhotoProvider with ChangeNotifier {
   Future<void> filterDeletedPhotos() async {
     final validPhotos = <Photo>[];
     
-    for (final photo in _photos) {
+    // 使用并发请求，提高检测速度
+    final futures = _photos.map((photo) async {
       try {
         // 尝试加载图片来检测是否还存在
         final response = await http.head(Uri.parse(photo.url));
         if (response.statusCode == 200) {
-          validPhotos.add(photo);
+          return photo;
         }
       } catch (e) {
         // 如果图片加载失败，说明照片可能已被删除
         print('照片已删除或无法访问: ${photo.url}');
+      }
+      return null;
+    });
+    
+    // 等待所有请求完成
+    final results = await Future.wait(futures);
+    
+    // 过滤掉null结果
+    for (final result in results) {
+      if (result != null) {
+        validPhotos.add(result);
       }
     }
     

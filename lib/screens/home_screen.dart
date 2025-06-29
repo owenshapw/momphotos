@@ -16,15 +16,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // 延迟加载，确保Provider完全初始化
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 添加短暂延迟，确保网络连接稳定
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          context.read<PhotoProvider>().loadPhotos();
-        }
-      });
-    });
+    // 数据已在main.dart中预加载，这里不需要重复加载
   }
 
   @override
@@ -112,14 +104,17 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async {
-                await context.read<PhotoProvider>().loadPhotos();
+                await context.read<PhotoProvider>().loadPhotos(forceRefresh: true);
               },
               child: Consumer<PhotoProvider>(
                 builder: (context, photoProvider, child) {
+                  // 如果正在加载但已有数据，显示现有数据
+                  if (photoProvider.isLoading && photoProvider.hasLoaded && photoProvider.photos.isNotEmpty) {
+                    return PhotoGrid(photos: photoProvider.photosByDecade);
+                  }
+                  
                   if (photoProvider.isLoading) {
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
+                    return _buildSkeletonLoader();
                   }
 
                   if (photoProvider.error != null) {
@@ -276,6 +271,72 @@ class _HomeScreenState extends State<HomeScreen> {
         foregroundColor: Colors.white,
         child: const Icon(Icons.add_a_photo),
       ),
+    );
+  }
+
+  Widget _buildSkeletonLoader() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 3,
+      itemBuilder: (context, index) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    width: 100,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 60,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 0.8,
+              ),
+              itemCount: 4,
+              itemBuilder: (context, photoIndex) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 } 

@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../models/photo.dart';
 import '../services/photo_provider.dart';
+import '../screens/photo_edit_screen.dart';
 
 class PhotoDetailScreen extends StatefulWidget {
   final Photo photo;
@@ -91,8 +92,18 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
             actions: [
               IconButton(
                 icon: const Icon(Icons.edit, color: Colors.white),
-                onPressed: () {
-                  // 编辑功能待实现
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PhotoEditScreen(photo: allPhotos[_currentIndex]),
+                    ),
+                  );
+                  
+                  // 如果编辑成功，刷新照片数据
+                  if (result == true) {
+                    context.read<PhotoProvider>().loadPhotos();
+                  }
                 },
               ),
             ],
