@@ -9,6 +9,7 @@ class PhotoProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   String _searchQuery = '';
+  List<String> _searchHistory = [];
 
   // Getters
   List<Photo> get photos => _photos;
@@ -16,6 +17,7 @@ class PhotoProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   String get searchQuery => _searchQuery;
+  List<String> get searchHistory => List.unmodifiable(_searchHistory);
 
   // 按年代分组的照片
   Map<String, List<Photo>> get photosByDecade {
@@ -29,8 +31,13 @@ class PhotoProvider with ChangeNotifier {
       grouped[decade]!.add(photo);
     }
     
+    // 过滤掉没有照片的年代分组
+    final nonEmptyGrouped = Map<String, List<Photo>>.fromEntries(
+      grouped.entries.where((entry) => entry.value.isNotEmpty),
+    );
+    
     // 按年代排序
-    final sortedKeys = grouped.keys.toList()
+    final sortedKeys = nonEmptyGrouped.keys.toList()
       ..sort((a, b) {
         if (a == '未知年代') return 1;
         if (b == '未知年代') return -1;
@@ -38,7 +45,7 @@ class PhotoProvider with ChangeNotifier {
       });
     
     return Map.fromEntries(
-      sortedKeys.map((key) => MapEntry(key, grouped[key]!)),
+      sortedKeys.map((key) => MapEntry(key, nonEmptyGrouped[key]!)),
     );
   }
 
@@ -56,16 +63,30 @@ class PhotoProvider with ChangeNotifier {
     _setLoading(true);
     _error = null;
     
-    try {
-      _photos = await ApiService.getPhotos();
-      _applySearchFilter();
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    } finally {
-      _setLoading(false);
+    // 添加重试机制
+    int retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        _photos = await ApiService.getPhotos();
+        _applySearchFilter();
+        notifyListeners();
+        return; // 成功则退出
+      } catch (e) {
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          // 最后一次重试失败
+          _error = e.toString();
+          notifyListeners();
+        } else {
+          // 等待一段时间后重试
+          await Future.delayed(Duration(seconds: retryCount * 2));
+        }
+      }
     }
+    
+    _setLoading(false);
   }
 
   // 搜索照片
@@ -78,11 +99,17 @@ class PhotoProvider with ChangeNotifier {
       _setLoading(true);
       _error = null;
       
+      // 添加到搜索历史
+      _addToSearchHistory(_searchQuery);
+      
       try {
+        // 先尝试使用后端搜索API
         _filteredPhotos = await ApiService.searchPhotos(_searchQuery);
         notifyListeners();
       } catch (e) {
-        _error = e.toString();
+        // 如果后端搜索失败，使用本地搜索
+        _error = null; // 清除错误，因为本地搜索可以工作
+        _applyLocalSearchFilter();
         notifyListeners();
       } finally {
         _setLoading(false);
@@ -90,6 +117,42 @@ class PhotoProvider with ChangeNotifier {
     }
     
     notifyListeners();
+  }
+
+  // 应用本地搜索过滤器
+  void _applyLocalSearchFilter() {
+    if (_searchQuery.isEmpty) {
+      _filteredPhotos = _photos;
+    } else {
+      final query = _searchQuery.toLowerCase();
+      _filteredPhotos = _photos.where((photo) {
+        // 搜索人物标签
+        final tagMatch = photo.tags.any((tag) =>
+            tag.toLowerCase().contains(query));
+        
+        // 搜索年代
+        final yearMatch = photo.year != null && 
+            photo.year.toString().contains(query);
+        
+        // 搜索年代分组
+        final decadeMatch = photo.decadeGroup.toLowerCase().contains(query);
+        
+        // 搜索简介
+        final descriptionMatch = photo.description != null &&
+            photo.description!.toLowerCase().contains(query);
+        
+        return tagMatch || yearMatch || decadeMatch || descriptionMatch;
+      }).toList();
+    }
+  }
+
+  // 应用搜索过滤器
+  void _applySearchFilter() {
+    if (_searchQuery.isEmpty) {
+      _filteredPhotos = _photos;
+    } else {
+      _applyLocalSearchFilter();
+    }
   }
 
   // 上传照片
@@ -159,18 +222,6 @@ class PhotoProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // 应用搜索过滤器
-  void _applySearchFilter() {
-    if (_searchQuery.isEmpty) {
-      _filteredPhotos = _photos;
-    } else {
-      _filteredPhotos = _photos.where((photo) {
-        return photo.tags.any((tag) =>
-            tag.toLowerCase().contains(_searchQuery.toLowerCase()));
-      }).toList();
-    }
-  }
-
   // 设置加载状态
   void _setLoading(bool loading) {
     _isLoading = loading;
@@ -180,6 +231,24 @@ class PhotoProvider with ChangeNotifier {
   // 清除错误
   void clearError() {
     _error = null;
+    notifyListeners();
+  }
+
+  // 添加搜索历史
+  void _addToSearchHistory(String query) {
+    if (query.trim().isNotEmpty) {
+      _searchHistory.remove(query.trim());
+      _searchHistory.insert(0, query.trim());
+      // 只保留最近10条搜索记录
+      if (_searchHistory.length > 10) {
+        _searchHistory = _searchHistory.take(10).toList();
+      }
+    }
+  }
+
+  // 清除搜索历史
+  void clearSearchHistory() {
+    _searchHistory.clear();
     notifyListeners();
   }
 } 

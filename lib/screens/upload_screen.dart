@@ -74,12 +74,13 @@ class _UploadScreenState extends State<UploadScreen> {
       return;
     }
 
-    if (_tags.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请至少添加一个人物标签')),
-      );
-      return;
-    }
+    // 标签现在是可选的，只用于搜索功能
+    // if (_tags.isEmpty) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(content: Text('请至少添加一个人物标签')),
+    //   );
+    //   return;
+    // }
 
     setState(() {
       _isUploading = true;
@@ -198,10 +199,18 @@ class _UploadScreenState extends State<UploadScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      '人物标签',
+                      '搜索标签',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '添加标签用于搜索功能，不会在照片上显示',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -285,7 +294,7 @@ class _UploadScreenState extends State<UploadScreen> {
                     // 已添加的标签
                     if (_tags.isNotEmpty) ...[
                       const Text(
-                        '已添加的标签:',
+                        '已添加的搜索标签:',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,

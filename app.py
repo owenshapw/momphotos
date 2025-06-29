@@ -51,20 +51,41 @@ def get_photos():
 
 @app.route('/search', methods=['GET'])
 def search_photos():
-    """按姓名搜索照片"""
+    """按多种条件搜索照片"""
     if not supabase:
         return jsonify({'error': 'Supabase未配置'}), 500
     
-    name = request.args.get('name', '')
-    if not name:
+    query = request.args.get('name', '').strip()
+    if not query:
         return jsonify([])
     
     try:
-        # 搜索包含指定标签的照片
-        response = supabase.table('photos').select('*').contains('tags', [name]).execute()
-        photos = response.data
+        # 获取所有照片，然后在Python中进行搜索
+        response = supabase.table('photos').select('*').order('created_at', desc=True).execute()
+        all_photos = response.data
         
-        return jsonify(photos)
+        # 在Python中进行多字段搜索
+        query_lower = query.lower()
+        filtered_photos = []
+        
+        for photo in all_photos:
+            # 搜索人物标签
+            tags = photo.get('tags', [])
+            tag_match = any(tag.lower().find(query_lower) != -1 for tag in tags)
+            
+            # 搜索年代
+            year = photo.get('year')
+            year_match = year is not None and str(year).find(query) != -1
+            
+            # 搜索简介
+            description = photo.get('description', '')
+            description_match = description and description.lower().find(query_lower) != -1
+            
+            # 如果任一字段匹配，则包含此照片
+            if tag_match or year_match or description_match:
+                filtered_photos.append(photo)
+        
+        return jsonify(filtered_photos)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

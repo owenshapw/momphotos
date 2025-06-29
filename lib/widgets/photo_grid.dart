@@ -14,12 +14,41 @@ class PhotoGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 过滤掉没有照片的年代分组
+    final nonEmptyPhotos = Map<String, List<Photo>>.fromEntries(
+      photos.entries.where((entry) => entry.value.isNotEmpty),
+    );
+
+    // 如果没有照片，显示空状态
+    if (nonEmptyPhotos.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.photo_library_outlined,
+              size: 64,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 16),
+            Text(
+              '暂无照片',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: photos.length,
+      itemCount: nonEmptyPhotos.length,
       itemBuilder: (context, index) {
-        final decade = photos.keys.elementAt(index);
-        final decadePhotos = photos[decade]!;
+        final decade = nonEmptyPhotos.keys.elementAt(index);
+        final decadePhotos = nonEmptyPhotos[decade]!;
         
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,7 +160,7 @@ class PhotoCard extends StatelessWidget {
               ),
               
               // 标签覆盖层
-              if (photo.tags.isNotEmpty)
+              if (photo.year != null)
                 Positioned(
                   bottom: 0,
                   left: 0,
@@ -148,47 +177,13 @@ class PhotoCard extends StatelessWidget {
                       ),
                     ),
                     padding: const EdgeInsets.all(8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 标签
-                        Wrap(
-                          spacing: 4,
-                          runSpacing: 2,
-                          children: photo.tags.take(3).map((tag) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.9),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                tag,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                        
-                        // 年代信息
-                        if (photo.year != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            '${photo.year}年',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ],
+                    child: Text(
+                      '${photo.year}年',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),

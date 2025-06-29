@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import '../models/photo.dart';
 
@@ -9,19 +10,34 @@ class ApiService {
   static const String baseUrl = 'https://momphotos.onrender.com';
   // 如果上面的 URL 不工作，请使用 Render 控制台中的实际 URL
   
+  // 设置超时时间
+  static const Duration timeout = Duration(seconds: 30);
+  
   // 获取所有照片
   static Future<List<Photo>> getPhotos() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/photos'));
+      final response = await http.get(
+        Uri.parse('$baseUrl/photos'),
+      ).timeout(timeout);
       
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         return data.map((json) => Photo.fromJson(json)).toList();
+      } else if (response.statusCode == 503) {
+        // 服务暂时不可用，可能是后端正在启动
+        throw Exception('服务正在启动中，请稍后重试');
       } else {
-        throw Exception('Failed to load photos: ${response.statusCode}');
+        throw Exception('加载失败: ${response.statusCode}');
       }
+    } on TimeoutException {
+      throw Exception('请求超时，请检查网络连接');
+    } on SocketException {
+      throw Exception('网络连接失败，请检查网络设置');
     } catch (e) {
-      throw Exception('Network error: $e');
+      if (e.toString().contains('Failed host lookup')) {
+        throw Exception('无法连接到服务器，请检查网络连接');
+      }
+      throw Exception('网络错误: $e');
     }
   }
 
@@ -30,16 +46,20 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/search?name=${Uri.encodeComponent(name)}'),
-      );
+      ).timeout(timeout);
       
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         return data.map((json) => Photo.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to search photos: ${response.statusCode}');
+        throw Exception('搜索失败: ${response.statusCode}');
       }
+    } on TimeoutException {
+      throw Exception('请求超时，请检查网络连接');
+    } on SocketException {
+      throw Exception('网络连接失败，请检查网络设置');
     } catch (e) {
-      throw Exception('Network error: $e');
+      throw Exception('网络错误: $e');
     }
   }
 
@@ -69,7 +89,7 @@ class ApiService {
       if (year != null) request.fields['year'] = year.toString();
       if (description != null) request.fields['description'] = description;
 
-      final response = await request.send();
+      final response = await request.send().timeout(timeout);
       final responseData = await response.stream.bytesToString();
 
       if (response.statusCode == 200) {
@@ -79,13 +99,17 @@ class ApiService {
         // 尝试解析错误信息
         try {
           final errorData = json.decode(responseData);
-          throw Exception('Upload failed: ${errorData['error'] ?? 'Unknown error'} (Status: ${response.statusCode})');
+          throw Exception('上传失败: ${errorData['error'] ?? '未知错误'} (状态: ${response.statusCode})');
         } catch (e) {
-          throw Exception('Upload failed: $responseData (Status: ${response.statusCode})');
+          throw Exception('上传失败: $responseData (状态: ${response.statusCode})');
         }
       }
+    } on TimeoutException {
+      throw Exception('上传超时，请检查网络连接');
+    } on SocketException {
+      throw Exception('网络连接失败，请检查网络设置');
     } catch (e) {
-      throw Exception('Upload error: $e');
+      throw Exception('上传错误: $e');
     }
   }
 
@@ -104,16 +128,20 @@ class ApiService {
           'tags': tags,
           if (year != null) 'year': year,
         }),
-      );
+      ).timeout(timeout);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return Photo.fromJson(data);
       } else {
-        throw Exception('Failed to update tags: ${response.statusCode}');
+        throw Exception('更新标签失败: ${response.statusCode}');
       }
+    } on TimeoutException {
+      throw Exception('请求超时，请检查网络连接');
+    } on SocketException {
+      throw Exception('网络连接失败，请检查网络设置');
     } catch (e) {
-      throw Exception('Update error: $e');
+      throw Exception('更新错误: $e');
     }
   }
 } 
