@@ -36,15 +36,21 @@ def allowed_file(filename):
 
 @app.route('/photos', methods=['GET'])
 def get_photos():
-    """获取所有照片"""
+    """获取所有照片，支持分页"""
     if not supabase:
         return jsonify({'error': 'Supabase未配置'}), 500
     
     try:
-        # 从Supabase获取照片数据
-        response = supabase.table('photos').select('*').order('created_at', desc=True).execute()
+        # 获取分页参数
+        limit = int(request.args.get('limit', 30))
+        offset = int(request.args.get('offset', 0))
+        start = offset
+        end = offset + limit - 1
+
+        # 从Supabase获取照片数据（分页）
+        response = supabase.table('photos').select('*').order('created_at', desc=True).range(start, end).execute()
         photos = response.data
-        
+
         return jsonify(photos)
     except Exception as e:
         return jsonify({'error': str(e)}), 500

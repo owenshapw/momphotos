@@ -14,10 +14,10 @@ class ApiService {
   static const Duration timeout = Duration(seconds: 30);
   
   // 获取所有照片
-  static Future<List<Photo>> getPhotos() async {
+  static Future<List<Photo>> getPhotos({int limit = 30, int offset = 0}) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/photos'),
+        Uri.parse('$baseUrl/photos?limit=$limit&offset=$offset'),
       ).timeout(timeout);
       
       if (response.statusCode == 200) {
