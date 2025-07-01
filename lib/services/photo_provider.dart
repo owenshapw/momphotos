@@ -135,35 +135,53 @@ class PhotoProvider with ChangeNotifier {
     _setLoading(false);
   }
 
-  // 过滤有效的照片（未删除的照片）
+  // 过滤有效的照片（未删除的照片）- 优化版本
   Future<List<Photo>> _filterValidPhotos(List<Photo> photos) async {
     final validPhotos = <Photo>[];
     
-    // 使用并发请求，提高检测速度
-    final futures = photos.map((photo) async {
-      try {
-        // 尝试加载图片来检测是否还存在
-        final response = await http.head(Uri.parse(photo.url));
-        if (response.statusCode == 200) {
-          return photo;
+    // 限制并发请求数量，避免过多请求
+    const maxConcurrent = 5;
+    final batches = <List<Photo>>[];
+    
+    for (int i = 0; i < photos.length; i += maxConcurrent) {
+      final end = (i + maxConcurrent < photos.length) ? i + maxConcurrent : photos.length;
+      batches.add(photos.sublist(i, end));
+    }
+    
+    for (final batch in batches) {
+      // 使用并发请求，但限制数量
+      final futures = batch.map((photo) async {
+        try {
+          // 使用更快的HEAD请求检查照片是否存在
+          final response = await http.head(
+            Uri.parse(photo.url),
+            headers: {'Connection': 'keep-alive'},
+          ).timeout(const Duration(seconds: 5));
+          
+          if (response.statusCode == 200) {
+            return photo;
+          }
+        } catch (e) {
+          // 如果图片加载失败，说明照片可能已被删除
+          if (kDebugMode) {
+            debugPrint('照片已删除或无法访问: ${photo.url}');
+          }
         }
-      } catch (e) {
-        // 如果图片加载失败，说明照片可能已被删除
-        if (kDebugMode) {
-          debugPrint('照片已删除或无法访问: ${photo.url}');
+        return null;
+      });
+      
+      // 等待当前批次完成
+      final results = await Future.wait(futures);
+      
+      // 过滤掉null结果
+      for (final result in results) {
+        if (result != null) {
+          validPhotos.add(result);
         }
       }
-      return null;
-    });
-    
-    // 等待所有请求完成
-    final results = await Future.wait(futures);
-    
-    // 过滤掉null结果
-    for (final result in results) {
-      if (result != null) {
-        validPhotos.add(result);
-      }
+      
+      // 短暂延迟，避免请求过于频繁
+      await Future.delayed(const Duration(milliseconds: 100));
     }
     
     return validPhotos;
@@ -172,16 +190,23 @@ class PhotoProvider with ChangeNotifier {
   // 搜索照片
   Future<void> searchPhotos(String query) async {
     _searchQuery = query.trim();
-    
+
+    // 如果是"年代"结尾的关键词，直接本地过滤
+    if (_searchQuery.endsWith('年代')) {
+      _applyLocalSearchFilter();
+      notifyListeners();
+      return;
+    }
+
     if (_searchQuery.isEmpty) {
       _filteredPhotos = _photos;
     } else {
       _setLoading(true);
       _error = null;
-      
+
       // 添加到搜索历史
       _addToSearchHistory(_searchQuery);
-      
+
       try {
         // 先尝试使用后端搜索API
         _filteredPhotos = await ApiService.searchPhotos(_searchQuery);
@@ -195,7 +220,7 @@ class PhotoProvider with ChangeNotifier {
         _setLoading(false);
       }
     }
-    
+
     notifyListeners();
   }
 
@@ -205,6 +230,18 @@ class PhotoProvider with ChangeNotifier {
       _filteredPhotos = _photos;
     } else {
       final query = _searchQuery.toLowerCase();
+      if (kDebugMode) {
+        debugPrint('=== 搜索调试信息 ===');
+        debugPrint('搜索查询: "$query"');
+        debugPrint('总照片数: ${_photos.length}');
+        
+        // 显示所有照片的年代信息
+        for (int i = 0; i < _photos.length && i < 5; i++) {
+          final photo = _photos[i];
+          debugPrint('照片 $i: ID=${photo.id}, 年份=${photo.year}, 年代分组="${photo.decadeGroup}"');
+        }
+      }
+      
       _filteredPhotos = _photos.where((photo) {
         // 搜索人物标签
         final tagMatch = photo.tags.any((tag) =>
@@ -214,15 +251,31 @@ class PhotoProvider with ChangeNotifier {
         final yearMatch = photo.year != null && 
             photo.year.toString().contains(query);
         
-        // 搜索年代分组
+        // 搜索年代分组（如"1970年代"）
         final decadeMatch = photo.decadeGroup.toLowerCase().contains(query);
+        
+        // 搜索年代数字（如"1970"）
+        final decadeNumberMatch = photo.year != null && 
+            query.contains(photo.year.toString());
         
         // 搜索简介
         final descriptionMatch = photo.description != null &&
             photo.description!.toLowerCase().contains(query);
         
-        return tagMatch || yearMatch || decadeMatch || descriptionMatch;
+        if (kDebugMode) {
+          if (tagMatch || yearMatch || decadeMatch || decadeNumberMatch || descriptionMatch) {
+            debugPrint('✓ 匹配照片: ID=${photo.id}, 年份=${photo.year}, 年代分组="${photo.decadeGroup}"');
+            debugPrint('  标签匹配: $tagMatch, 年份匹配: $yearMatch, 年代分组匹配: $decadeMatch, 年代数字匹配: $decadeNumberMatch, 简介匹配: $descriptionMatch');
+          }
+        }
+        
+        return tagMatch || yearMatch || decadeMatch || decadeNumberMatch || descriptionMatch;
       }).toList();
+      
+      if (kDebugMode) {
+        debugPrint('搜索结果: ${_filteredPhotos.length} 张照片');
+        debugPrint('=== 搜索调试结束 ===');
+      }
     }
   }
 
@@ -323,24 +376,34 @@ class PhotoProvider with ChangeNotifier {
       // 更新照片列表中的对应照片
       final index = _photos.indexWhere((photo) => photo.id == photoId);
       if (index != -1) {
+        final oldPhoto = _photos[index];
         _photos[index] = updatedPhoto;
         
-        // 重新排序以确保正确的顺序
-        _photos.sort((a, b) {
-          // 优先按拍摄年份排序
-          if (a.year != null && b.year != null) {
-            return b.year!.compareTo(a.year!); // 降序，最新的在前
-          } else if (a.year != null) {
-            return -1; // 有年份的排在前面
-          } else if (b.year != null) {
-            return 1;
-          } else {
-            // 如果都没有年份，按创建时间排序
-            return b.createdAt.compareTo(a.createdAt);
-          }
-        });
+        bool needsResort = false;
         
-        _applySearchFilter();
+        // 只有当年份发生变化时才重新排序
+        if (oldPhoto.year != updatedPhoto.year) {
+          needsResort = true;
+          _photos.sort((a, b) {
+            // 优先按拍摄年份排序
+            if (a.year != null && b.year != null) {
+              return b.year!.compareTo(a.year!); // 降序，最新的在前
+            } else if (a.year != null) {
+              return -1; // 有年份的排在前面
+            } else if (b.year != null) {
+              return 1;
+            } else {
+              // 如果都没有年份，按创建时间排序
+              return b.createdAt.compareTo(a.createdAt);
+            }
+          });
+        }
+        
+        // 只有在需要重新排序或搜索过滤结果可能受影响时才更新过滤结果
+        if (needsResort || _searchQuery.isNotEmpty) {
+          _applySearchFilter();
+        }
+        
         notifyListeners();
       }
     } catch (e) {
@@ -387,4 +450,6 @@ class PhotoProvider with ChangeNotifier {
     _searchHistory.clear();
     notifyListeners();
   }
+
+
 } 

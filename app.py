@@ -77,12 +77,19 @@ def search_photos():
             year = photo.get('year')
             year_match = year is not None and str(year).find(query) != -1
             
+            # 搜索年代分组（如"1970年代"）
+            decade_match = False
+            if year is not None:
+                decade = (year // 10) * 10
+                decade_group = f"{decade}年代"
+                decade_match = decade_group.find(query) != -1
+            
             # 搜索简介
             description = photo.get('description', '')
             description_match = description and description.lower().find(query_lower) != -1
             
             # 如果任一字段匹配，则包含此照片
-            if tag_match or year_match or description_match:
+            if tag_match or year_match or decade_match or description_match:
                 filtered_photos.append(photo)
         
         return jsonify(filtered_photos)

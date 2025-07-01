@@ -77,7 +77,17 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('保存成功！')),
         );
-        Navigator.pop(context, true); // 返回true表示已更新
+        
+        // 返回编辑后的数据
+        final editedData = {
+          'tags': _tags,
+          'year': _selectedYear,
+          'description': _descriptionController.text.trim().isEmpty
+              ? null
+              : _descriptionController.text.trim(),
+        };
+        
+        Navigator.pop(context, editedData);
       }
     } catch (e) {
       if (mounted) {

@@ -46,7 +46,9 @@ class Photo {
     if (year == null) return '未知年代';
     
     int decade = (year! ~/ 10) * 10;
-    return '$decade年代';
+    final result = '$decade年代';
+    
+    return result;
   }
 
   // 复制并更新照片信息

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../services/photo_provider.dart';
 
@@ -43,7 +44,14 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
       suggestions.add(photo.decadeGroup);
     }
     
-    return suggestions.toList()..sort();
+    final result = suggestions.toList()..sort();
+    
+    // 调试信息
+    if (kDebugMode) {
+      debugPrint('搜索建议: $result');
+    }
+    
+    return result;
   }
 
   @override
@@ -128,52 +136,50 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
                     ),
                   ],
                 ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: suggestions.length,
-                    itemBuilder: (context, index) {
-                      final suggestion = suggestions[index];
-                      final isHistory = photoProvider.searchHistory.contains(suggestion);
-                      final isYear = suggestion.contains('年') || (int.tryParse(suggestion) != null);
-                      final isDecade = suggestion.contains('年代');
-                      
-                      IconData icon;
-                      Color iconColor;
-                      
-                      if (isHistory) {
-                        icon = Icons.history;
-                        iconColor = Colors.blue;
-                      } else if (isYear) {
-                        icon = Icons.calendar_today;
-                        iconColor = Colors.orange;
-                      } else if (isDecade) {
-                        icon = Icons.date_range;
-                        iconColor = Colors.green;
-                      } else {
-                        icon = Icons.person;
-                        iconColor = Colors.purple;
-                      }
-                      
-                      return ListTile(
-                        dense: true,
-                        title: Text(
-                          suggestion,
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                        leading: Icon(icon, size: 16, color: iconColor),
-                        onTap: () {
-                          _controller.text = suggestion;
-                          photoProvider.searchPhotos(suggestion);
-                          _focusNode.unfocus();
-                          setState(() {
-                            _showSuggestions = false;
-                          });
-                        },
-                      );
-                    },
-                  ),
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: suggestions.length,
+                  itemBuilder: (context, index) {
+                    final suggestion = suggestions[index];
+                    final isHistory = photoProvider.searchHistory.contains(suggestion);
+                    final isYear = suggestion.contains('年') || (int.tryParse(suggestion) != null);
+                    final isDecade = suggestion.contains('年代');
+                    
+                    IconData icon;
+                    Color iconColor;
+                    
+                    if (isHistory) {
+                      icon = Icons.history;
+                      iconColor = Colors.blue;
+                    } else if (isYear) {
+                      icon = Icons.calendar_today;
+                      iconColor = Colors.orange;
+                    } else if (isDecade) {
+                      icon = Icons.date_range;
+                      iconColor = Colors.green;
+                    } else {
+                      icon = Icons.person;
+                      iconColor = Colors.purple;
+                    }
+                    
+                    return ListTile(
+                      dense: true,
+                      title: Text(
+                        suggestion,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      leading: Icon(icon, size: 16, color: iconColor),
+                      onTap: () {
+                        _controller.text = suggestion;
+                        photoProvider.searchPhotos(suggestion);
+                        _focusNode.unfocus();
+                        setState(() {
+                          _showSuggestions = false;
+                        });
+                      },
+                    );
+                  },
                 ),
               ),
           ],

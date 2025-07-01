@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/photo_provider.dart';
-import 'screens/home_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,10 +15,6 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (context) {
         final provider = PhotoProvider();
-        // 预加载照片数据
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          provider.loadPhotos();
-        });
         return provider;
       },
       child: MaterialApp(
@@ -31,7 +27,7 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
           fontFamily: 'Roboto',
         ),
-        home: const HomeScreen(),
+        home: const SplashScreen(),
         debugShowCheckedModeBanner: false,
       ),
     );
