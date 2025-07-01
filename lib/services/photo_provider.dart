@@ -12,10 +12,6 @@ class PhotoProvider with ChangeNotifier {
   String _searchQuery = '';
   List<String> _searchHistory = [];
   bool _hasLoaded = false; // 添加加载状态标记
-  bool _hasMore = true;
-  bool _isLoadingMore = false;
-  int _currentOffset = 0;
-  final int _pageSize = 30;
 
   // Getters
   List<Photo> get photos => _photos;
@@ -25,8 +21,6 @@ class PhotoProvider with ChangeNotifier {
   String get searchQuery => _searchQuery;
   List<String> get searchHistory => List.unmodifiable(_searchHistory);
   bool get hasLoaded => _hasLoaded;
-  bool get hasMore => _hasMore;
-  bool get isLoadingMore => _isLoadingMore;
 
   // 按年代分组的照片
   Map<String, List<Photo>> get photosByDecade {
@@ -84,63 +78,61 @@ class PhotoProvider with ChangeNotifier {
     return tags;
   }
 
-  // 加载所有照片（分页）
+  // 加载所有照片
   Future<void> loadPhotos({bool forceRefresh = false}) async {
+    // 如果已经加载过且不强制刷新，直接返回
     if (_hasLoaded && !forceRefresh && _photos.isNotEmpty) {
       return;
     }
+    
     _setLoading(true);
     _error = null;
-    _photos.clear();
-    _filteredPhotos.clear();
-    _currentOffset = 0;
-    _hasMore = true;
+    
+    // 添加重试机制
     int retryCount = 0;
     const maxRetries = 3;
+    
     while (retryCount < maxRetries) {
       try {
-        final pagePhotos = await ApiService.getPhotos(limit: _pageSize, offset: 0);
-        _photos = await _filterValidPhotos(pagePhotos);
-        _filteredPhotos = _photos;
-        _currentOffset = _photos.length;
-        _hasMore = pagePhotos.length == _pageSize;
-        _hasLoaded = true;
+        final allPhotos = await ApiService.getPhotos();
+        
+        // 过滤掉已删除的照片
+        _photos = await _filterValidPhotos(allPhotos);
+        
+        // 按拍摄日期排序（从近到远）
+        _photos.sort((a, b) {
+          // 优先按拍摄年份排序
+          if (a.year != null && b.year != null) {
+            return b.year!.compareTo(a.year!); // 降序，最新的在前
+          } else if (a.year != null) {
+            return -1; // 有年份的排在前面
+          } else if (b.year != null) {
+            return 1;
+          } else {
+            // 如果都没有年份，按创建时间排序
+            return b.createdAt.compareTo(a.createdAt);
+          }
+        });
+        
         _applySearchFilter();
+        _hasLoaded = true; // 标记为已加载
         notifyListeners();
-        return;
+        
+        return; // 成功则退出
       } catch (e) {
         retryCount++;
         if (retryCount >= maxRetries) {
+          // 最后一次重试失败
           _error = e.toString();
           notifyListeners();
         } else {
+          // 减少重试间隔，提高响应速度
           await Future.delayed(Duration(seconds: retryCount));
         }
       }
     }
+    
     _setLoading(false);
-  }
-
-  // 加载更多照片（分页追加）
-  Future<void> loadMorePhotos() async {
-    if (_isLoadingMore || !_hasMore) return;
-    _isLoadingMore = true;
-    notifyListeners();
-    try {
-      final pagePhotos = await ApiService.getPhotos(limit: _pageSize, offset: _currentOffset);
-      final validPhotos = await _filterValidPhotos(pagePhotos);
-      _photos.addAll(validPhotos);
-      _filteredPhotos = _photos;
-      _currentOffset = _photos.length;
-      _hasMore = pagePhotos.length == _pageSize;
-      _applySearchFilter();
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    } finally {
-      _isLoadingMore = false;
-    }
   }
 
   // 过滤有效的照片（未删除的照片）- 优化版本
@@ -195,37 +187,40 @@ class PhotoProvider with ChangeNotifier {
     return validPhotos;
   }
 
-  // 搜索照片（分页）
+  // 搜索照片
   Future<void> searchPhotos(String query) async {
     _searchQuery = query.trim();
+
+    // 如果是"年代"结尾的关键词，直接本地过滤
     if (_searchQuery.endsWith('年代')) {
       _applyLocalSearchFilter();
       notifyListeners();
       return;
     }
+
     if (_searchQuery.isEmpty) {
       _filteredPhotos = _photos;
     } else {
       _setLoading(true);
       _error = null;
-      _filteredPhotos.clear();
-      _currentOffset = 0;
-      _hasMore = true;
+
+      // 添加到搜索历史
       _addToSearchHistory(_searchQuery);
+
       try {
-        final pagePhotos = await ApiService.searchPhotos(_searchQuery);
-        _filteredPhotos = pagePhotos;
-        _currentOffset = _filteredPhotos.length;
-        _hasMore = pagePhotos.length == _pageSize;
+        // 先尝试使用后端搜索API
+        _filteredPhotos = await ApiService.searchPhotos(_searchQuery);
         notifyListeners();
       } catch (e) {
-        _error = null;
+        // 如果后端搜索失败，使用本地搜索
+        _error = null; // 清除错误，因为本地搜索可以工作
         _applyLocalSearchFilter();
         notifyListeners();
       } finally {
         _setLoading(false);
       }
     }
+
     notifyListeners();
   }
 
@@ -455,6 +450,4 @@ class PhotoProvider with ChangeNotifier {
     _searchHistory.clear();
     notifyListeners();
   }
-
-
 } 

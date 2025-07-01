@@ -42,15 +42,19 @@ def get_photos():
     
     try:
         # 获取分页参数
-        limit = int(request.args.get('limit', 30))
+        limit = request.args.get('limit')
         offset = int(request.args.get('offset', 0))
-        start = offset
-        end = offset + limit - 1
-
-        # 从Supabase获取照片数据（分页）
-        response = supabase.table('photos').select('*').order('created_at', desc=True).range(start, end).execute()
+        
+        # 如果没有指定limit，返回所有照片
+        if limit is None:
+            response = supabase.table('photos').select('*').order('created_at', desc=True).execute()
+        else:
+            limit = int(limit)
+            start = offset
+            end = offset + limit - 1
+            response = supabase.table('photos').select('*').order('created_at', desc=True).range(start, end).execute()
+        
         photos = response.data
-
         return jsonify(photos)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
