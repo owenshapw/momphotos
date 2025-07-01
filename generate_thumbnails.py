@@ -1,7 +1,7 @@
 import os
 import io
 import requests
-from PIL import Image
+from PIL import Image, ExifTags
 from supabase import create_client, Client
 import uuid
 
@@ -12,6 +12,24 @@ BUCKET_NAME = "photos"
 # =======================================
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+def correct_image_orientation(img):
+    try:
+        exif = img._getexif()
+        if exif is not None:
+            for orientation in ExifTags.TAGS.keys():
+                if ExifTags.TAGS[orientation] == 'Orientation':
+                    break
+            orientation_value = exif.get(orientation, None)
+            if orientation_value == 3:
+                img = img.rotate(180, expand=True)
+            elif orientation_value == 6:
+                img = img.rotate(270, expand=True)
+            elif orientation_value == 8:
+                img = img.rotate(90, expand=True)
+    except Exception as e:
+        pass
+    return img
 
 def generate_and_upload_thumbnail(photo):
     url = photo['url']
@@ -29,6 +47,7 @@ def generate_and_upload_thumbnail(photo):
         resp = requests.get(url)
         resp.raise_for_status()
         img = Image.open(io.BytesIO(resp.content))
+        img = correct_image_orientation(img)
         img.thumbnail((300, 300))
         thumb_io = io.BytesIO()
         save_format = img.format if img.format else 'JPEG'
