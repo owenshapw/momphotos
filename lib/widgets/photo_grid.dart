@@ -272,7 +272,7 @@ class PhotoCard extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: CachedNetworkImage(
-            imageUrl: photo.url,
+            imageUrl: photo.thumbnailUrl ?? photo.url,
             fit: BoxFit.cover,
             placeholder: (context, url) => Container(
               color: Colors.grey[100],
