@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'services/photo_provider.dart';
 import 'screens/splash_screen.dart';
+import 'screens/login_screen.dart';
 import 'dart:developer' as developer;
 
 void main() {
@@ -55,7 +56,7 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
           fontFamily: 'Roboto',
         ),
-        home: const SplashScreen(),
+        home: const LoginScreen(),
         debugShowCheckedModeBanner: false,
       ),
     );
