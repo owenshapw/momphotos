@@ -21,7 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
     await Future.delayed(const Duration(milliseconds: 300));
-    if (_usernameController.text == 'sha' && _passwordController.text == 'shajia') {
+    if (_usernameController.text.trim() == '沙家' && _passwordController.text == '194201') {
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const SplashScreen()),
@@ -59,6 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _usernameController,
                     decoration: const InputDecoration(
                       labelText: '用户名',
+                      hintText: '请输入用户名（沙家）',
                       border: OutlineInputBorder(),
                     ),
                     enabled: !_isLoading,
@@ -69,6 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: _obscure,
                     decoration: InputDecoration(
                       labelText: '密码',
+                      hintText: '请输入密码（194201）',
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
                         icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
