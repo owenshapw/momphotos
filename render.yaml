@@ -11,6 +11,6 @@ services:
     sync: false
   region: oregon
   buildCommand: pip install -r requirements.txt
-  startCommand: python3 app.py
+  startCommand: "gunicorn app:app"
   autoDeployTrigger: commit
 version: "1"
