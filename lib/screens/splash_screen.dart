@@ -75,25 +75,25 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     final photoProvider = context.read<PhotoProvider>();
     final startTime = DateTime.now();
     
-    // 简化加载步骤
-    _updateLoadingStep('正在加载照片...', 1);
-    await Future.delayed(const Duration(milliseconds: 500));
+    // 优化加载步骤
+    _updateLoadingStep('正在准备...', 1);
+    await Future.delayed(const Duration(milliseconds: 200));
     
-    // 实际加载照片数据
+    // 实际加载照片数据（使用缓存）
     try {
       await photoProvider.loadPhotos();
-      _updateLoadingStep('加载完成', 2);
-      await Future.delayed(const Duration(milliseconds: 300));
+      _updateLoadingStep('准备就绪', 2);
+      await Future.delayed(const Duration(milliseconds: 200));
     } catch (e) {
       // 即使加载失败也继续进入主界面
       _updateLoadingStep('准备就绪', 2);
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 200));
     }
     
-    // 确保最小显示时间为2秒
+    // 减少最小显示时间到1.5秒
     final totalTime = DateTime.now().difference(startTime);
-    if (totalTime.inMilliseconds < 2000) {
-      await Future.delayed(Duration(milliseconds: 2000 - totalTime.inMilliseconds));
+    if (totalTime.inMilliseconds < 1500) {
+      await Future.delayed(Duration(milliseconds: 1500 - totalTime.inMilliseconds));
     }
     
     // 导航到主界面
@@ -104,7 +104,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(opacity: animation, child: child);
           },
-          transitionDuration: const Duration(milliseconds: 400),
+          transitionDuration: const Duration(milliseconds: 300),
         ),
       );
     }

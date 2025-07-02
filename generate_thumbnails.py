@@ -1,8 +1,16 @@
 import os
 import io
 import requests
-from PIL import Image, ExifTags
-from supabase import create_client, Client
+try:
+    from PIL import Image, ExifTags
+except ImportError:
+    raise ImportError("Pillow (PIL) is required. Install it with 'pip install pillow'.")
+
+try:
+    from supabase import create_client, Client
+except ImportError:
+    raise ImportError("supabase-py is required. Install it with 'pip install supabase'.")
+
 import uuid
 
 # ========== 配置你的 Supabase ==========

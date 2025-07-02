@@ -36,7 +36,7 @@ def allowed_file(filename):
 
 @app.route('/photos', methods=['GET'])
 def get_photos():
-    """获取所有照片，支持分页"""
+    """获取所有照片，支持分页和缓存"""
     if not supabase:
         return jsonify({'error': 'Supabase未配置'}), 500
     
@@ -45,14 +45,20 @@ def get_photos():
         limit = request.args.get('limit')
         offset = int(request.args.get('offset', 0))
         
+        # 优化查询：只选择需要的字段，按年份和创建时间排序
+        query = supabase.table('photos').select('id,url,thumbnail_url,created_at,year,tags,description')
+        
+        # 按年份降序，然后按创建时间降序
+        query = query.order('year', desc=True).order('created_at', desc=True)
+        
         # 如果没有指定limit，返回所有照片
         if limit is None:
-            response = supabase.table('photos').select('*').order('created_at', desc=True).execute()
+            response = query.execute()
         else:
             limit = int(limit)
             start = offset
             end = offset + limit - 1
-            response = supabase.table('photos').select('*').order('created_at', desc=True).range(start, end).execute()
+            response = query.range(start, end).execute()
         
         photos = response.data
         return jsonify(photos)
@@ -61,7 +67,7 @@ def get_photos():
 
 @app.route('/search', methods=['GET'])
 def search_photos():
-    """按多种条件搜索照片"""
+    """按多种条件搜索照片（优化版本）"""
     if not supabase:
         return jsonify({'error': 'Supabase未配置'}), 500
     
@@ -70,11 +76,27 @@ def search_photos():
         return jsonify([])
     
     try:
-        # 获取所有照片，然后在Python中进行搜索
+        # 尝试数字搜索（年份）
+        if query.isdigit():
+            year = int(query)
+            if 1900 <= year <= 2030:
+                response = supabase.table('photos').select('*').eq('year', year).order('created_at', desc=True).execute()
+                return jsonify(response.data)
+        
+        # 尝试年代搜索（如"2020年代"）
+        if query.endswith('年代') and query[:-2].isdigit():
+            decade = int(query[:-2])
+            start_year = decade
+            end_year = decade + 9
+            response = supabase.table('photos').select('*').gte('year', start_year).lte('year', end_year).order('created_at', desc=True).execute()
+            return jsonify(response.data)
+        
+        # 对于其他搜索，使用文本搜索
+        # 注意：这里简化处理，实际可以使用PostgreSQL的全文搜索功能
         response = supabase.table('photos').select('*').order('created_at', desc=True).execute()
         all_photos = response.data
         
-        # 在Python中进行多字段搜索
+        # 在Python中进行文本搜索（作为后备方案）
         query_lower = query.lower()
         filtered_photos = []
         
@@ -83,23 +105,12 @@ def search_photos():
             tags = photo.get('tags', [])
             tag_match = any(tag.lower().find(query_lower) != -1 for tag in tags)
             
-            # 搜索年代
-            year = photo.get('year')
-            year_match = year is not None and str(year).find(query) != -1
-            
-            # 搜索年代分组（如"1970年代"）
-            decade_match = False
-            if year is not None:
-                decade = (year // 10) * 10
-                decade_group = f"{decade}年代"
-                decade_match = decade_group.find(query) != -1
-            
             # 搜索简介
             description = photo.get('description', '')
             description_match = description and description.lower().find(query_lower) != -1
             
             # 如果任一字段匹配，则包含此照片
-            if tag_match or year_match or decade_match or description_match:
+            if tag_match or description_match:
                 filtered_photos.append(photo)
         
         return jsonify(filtered_photos)
@@ -216,11 +227,29 @@ def update_photo_tags():
 @app.route('/health', methods=['GET'])
 def health_check():
     """健康检查"""
-    return jsonify({
-        'status': 'ok', 
-        'timestamp': datetime.now().isoformat(),
-        'supabase_configured': supabase is not None
-    })
+    try:
+        # 简单的数据库连接测试
+        if supabase:
+            # 执行一个轻量级查询来测试连接
+            response = supabase.table('photos').select('id').limit(1).execute()
+            return jsonify({
+                'status': 'ok', 
+                'timestamp': datetime.now().isoformat(),
+                'database': 'connected',
+                'photo_count': len(response.data) if response.data else 0
+            })
+        else:
+            return jsonify({
+                'status': 'ok', 
+                'timestamp': datetime.now().isoformat(),
+                'database': 'not_configured'
+            })
+    except Exception as e:
+        return jsonify({
+            'status': 'error', 
+            'timestamp': datetime.now().isoformat(),
+            'error': str(e)
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080) 

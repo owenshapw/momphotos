@@ -78,7 +78,7 @@ class PhotoProvider with ChangeNotifier {
     return tags;
   }
 
-  // 加载所有照片
+    // 加载所有照片
   Future<void> loadPhotos({bool forceRefresh = false}) async {
     // 如果已经加载过且不强制刷新，直接返回
     if (_hasLoaded && !forceRefresh && _photos.isNotEmpty) {
@@ -94,10 +94,15 @@ class PhotoProvider with ChangeNotifier {
     
     while (retryCount < maxRetries) {
       try {
-        final allPhotos = await ApiService.getPhotos();
+        // 使用新的API，支持缓存
+        final allPhotos = await ApiService.getPhotos(forceRefresh: forceRefresh);
         
-        // 过滤掉已删除的照片
-        _photos = await _filterValidPhotos(allPhotos);
+        // 过滤掉已删除的照片（只在强制刷新时进行）
+        if (forceRefresh) {
+          _photos = await _filterValidPhotos(allPhotos);
+        } else {
+          _photos = allPhotos;
+        }
         
         // 按拍摄日期排序（从近到远）
         _photos.sort((a, b) {
@@ -187,32 +192,32 @@ class PhotoProvider with ChangeNotifier {
     return validPhotos;
   }
 
-  // 搜索照片
+    // 搜索照片
   Future<void> searchPhotos(String query) async {
     _searchQuery = query.trim();
 
-    // 如果是"年代"结尾的关键词，直接本地过滤
-    if (_searchQuery.endsWith('年代')) {
-      _applyLocalSearchFilter();
+    if (_searchQuery.isEmpty) {
+      _filteredPhotos = _photos;
       notifyListeners();
       return;
     }
 
-    if (_searchQuery.isEmpty) {
-      _filteredPhotos = _photos;
-    } else {
+    // 添加到搜索历史
+    _addToSearchHistory(_searchQuery);
+    
+    // 优先使用本地搜索（更快）
+    _applyLocalSearchFilter();
+    notifyListeners();
+    
+    // 如果本地没有数据，尝试服务器搜索
+    if (_photos.isEmpty) {
       _setLoading(true);
       _error = null;
-
-      // 添加到搜索历史
-      _addToSearchHistory(_searchQuery);
-
+      
       try {
-        // 先尝试使用后端搜索API
         _filteredPhotos = await ApiService.searchPhotos(_searchQuery);
         notifyListeners();
       } catch (e) {
-        // 如果后端搜索失败，使用本地搜索
         _error = null; // 清除错误，因为本地搜索可以工作
         _applyLocalSearchFilter();
         notifyListeners();
@@ -220,8 +225,6 @@ class PhotoProvider with ChangeNotifier {
         _setLoading(false);
       }
     }
-
-    notifyListeners();
   }
 
   // 应用本地搜索过滤器

@@ -13,16 +13,46 @@ class ApiService {
   // 设置超时时间
   static const Duration timeout = Duration(seconds: 30);
   
-  // 获取所有照片
-  static Future<List<Photo>> getPhotos() async {
+  // 缓存机制
+  static List<Photo>? _cachedPhotos;
+  static DateTime? _lastCacheTime;
+  static const Duration cacheValidDuration = Duration(minutes: 5);
+  
+  // 获取所有照片（带缓存和分页）
+  static Future<List<Photo>> getPhotos({int? limit, int? offset, bool forceRefresh = false}) async {
+    // 检查缓存
+    if (!forceRefresh && _cachedPhotos != null && _lastCacheTime != null) {
+      final timeSinceLastCache = DateTime.now().difference(_lastCacheTime!);
+      if (timeSinceLastCache < cacheValidDuration) {
+        // 如果请求分页，从缓存中返回对应部分
+        if (limit != null && offset != null) {
+          final start = offset;
+          final end = (start + limit < _cachedPhotos!.length) ? start + limit : _cachedPhotos!.length;
+          return _cachedPhotos!.sublist(start, end);
+        }
+        return _cachedPhotos!;
+      }
+    }
+    
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/photos'),
-      ).timeout(timeout);
+      final queryParams = <String, String>{};
+      if (limit != null) queryParams['limit'] = limit.toString();
+      if (offset != null) queryParams['offset'] = offset.toString();
+      
+      final uri = Uri.parse('$baseUrl/photos').replace(queryParameters: queryParams);
+      final response = await http.get(uri).timeout(timeout);
       
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        return data.map((json) => Photo.fromJson(json)).toList();
+        final photos = data.map((json) => Photo.fromJson(json)).toList();
+        
+        // 更新缓存（只在获取所有照片时）
+        if (limit == null && offset == null) {
+          _cachedPhotos = photos;
+          _lastCacheTime = DateTime.now();
+        }
+        
+        return photos;
       } else if (response.statusCode == 503) {
         // 服务暂时不可用，可能是后端正在启动
         throw Exception('服务正在启动中，请稍后重试');
@@ -41,9 +71,18 @@ class ApiService {
     }
   }
 
-  // 按姓名搜索照片
+  // 按姓名搜索照片（优化版本）
   static Future<List<Photo>> searchPhotos(String name) async {
     try {
+      // 如果缓存中有数据，先尝试本地搜索
+      if (_cachedPhotos != null && _lastCacheTime != null) {
+        final timeSinceLastCache = DateTime.now().difference(_lastCacheTime!);
+        if (timeSinceLastCache < cacheValidDuration) {
+          return _performLocalSearch(_cachedPhotos!, name);
+        }
+      }
+      
+      // 否则使用服务器搜索
       final response = await http.get(
         Uri.parse('$baseUrl/search?name=${Uri.encodeComponent(name)}'),
       ).timeout(timeout);
@@ -61,6 +100,35 @@ class ApiService {
     } catch (e) {
       throw Exception('网络错误: $e');
     }
+  }
+
+  // 本地搜索实现
+  static List<Photo> _performLocalSearch(List<Photo> photos, String query) {
+    if (query.isEmpty) return photos;
+    
+    final queryLower = query.toLowerCase();
+    return photos.where((photo) {
+      // 搜索人物标签
+      final tagMatch = photo.tags.any((tag) => tag.toLowerCase().contains(queryLower));
+      
+      // 搜索年代
+      final yearMatch = photo.year != null && photo.year.toString().contains(query);
+      
+      // 搜索年代分组
+      final decadeMatch = photo.decadeGroup.toLowerCase().contains(queryLower);
+      
+      // 搜索简介
+      final descriptionMatch = photo.description != null && 
+          photo.description!.toLowerCase().contains(queryLower);
+      
+      return tagMatch || yearMatch || decadeMatch || descriptionMatch;
+    }).toList();
+  }
+
+  // 清除缓存
+  static void clearCache() {
+    _cachedPhotos = null;
+    _lastCacheTime = null;
   }
 
   // 上传照片

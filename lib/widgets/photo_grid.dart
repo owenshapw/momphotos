@@ -15,7 +15,7 @@ class PhotoGrid extends StatefulWidget {
 class PhotoGridState extends State<PhotoGrid> {
   final List<Photo> _allPhotos = []; // 按时间顺序的所有照片
   final List<Photo> _loadedPhotos = []; // 已加载的照片
-  final int _batchSize = 12; // 每次加载的照片数量
+  final int _batchSize = 8; // 减少批量大小，提高初始加载速度
   bool _isLoading = false;
   bool _hasMorePhotos = true;
   late final ScrollController _scrollController;
@@ -109,8 +109,8 @@ class PhotoGridState extends State<PhotoGrid> {
       _isLoading = true;
     });
     
-    // 模拟异步加载
-    Future.delayed(const Duration(milliseconds: 500), () {
+    // 减少延迟时间，提高响应速度
+    Future.delayed(const Duration(milliseconds: 200), () {
       if (!mounted) return;
       
       final currentCount = _loadedPhotos.length;
