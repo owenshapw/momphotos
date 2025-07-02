@@ -12,7 +12,6 @@ class PhotoProvider with ChangeNotifier {
   String _searchQuery = '';
   List<String> _searchHistory = [];
   bool _hasLoaded = false; // 添加加载状态标记
-  final int _batchSize = 8; // 或 6
 
   // Getters
   List<Photo> get photos => _photos;
