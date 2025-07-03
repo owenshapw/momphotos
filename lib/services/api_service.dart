@@ -6,6 +6,7 @@ import '../models/photo.dart';
 import '../models/user.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthResponse;
 import 'package:path/path.dart' as p;
+import 'package:image/image.dart' as img;
 
 class ApiService {
   // 本地开发服务器 URL
@@ -248,7 +249,7 @@ class ApiService {
     String? description,
   }) async {
     try {
-      // 1. 上传图片到 Supabase Storage
+      // 1. 上传原图到 Supabase Storage
       final supabase = Supabase.instance.client;
       final fileBytes = await imageFile.readAsBytes();
       final fileName =
@@ -261,7 +262,24 @@ class ApiService {
       }
       final imageUrl = supabase.storage.from('photos').getPublicUrl(fileName);
 
-      // 2. POST 元数据到后端
+      // 2. 生成缩略图并上传
+      final originalImage = img.decodeImage(fileBytes);
+      if (originalImage == null) {
+        throw Exception('无法解码原始图片');
+      }
+      final thumbnail = img.copyResize(originalImage, width: 300, height: 300);
+      final thumbnailBytes = img.encodeJpg(thumbnail, quality: 80);
+      final thumbFileName =
+          'photos/thumbnails/${DateTime.now().millisecondsSinceEpoch}_${p.basename(imageFile.path)}';
+      final thumbStorageResponse = await supabase.storage
+          .from('photos')
+          .uploadBinary(thumbFileName, thumbnailBytes, fileOptions: FileOptions(contentType: 'image/jpeg'));
+      if (thumbStorageResponse.isEmpty) {
+        throw Exception('缩略图上传到 Supabase Storage 失败');
+      }
+      final thumbnailUrl = supabase.storage.from('photos').getPublicUrl(thumbFileName);
+
+      // 3. POST 元数据到后端
       final response = await http.post(
         Uri.parse('$baseUrl/photos'),
         headers: {
@@ -270,6 +288,7 @@ class ApiService {
         },
         body: json.encode({
           'url': imageUrl,
+          'thumbnail_url': thumbnailUrl,
           'tags': tags,
           if (year != null) 'year': year,
           if (description != null) 'description': description,
