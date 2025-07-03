@@ -1,25 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'splash_screen.dart';
-import 'register_screen.dart';
 import '../services/auth_service.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  bool _obscure = true;
+  final TextEditingController _confirmPasswordController = TextEditingController();
+  
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   String? _error;
   bool _isLoading = false;
   double _buttonScale = 1.0;
 
-  void _login() async {
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  void _register() async {
     // 验证输入
     if (_phoneController.text.trim().isEmpty) {
       setState(() => _error = '请输入手机号');
@@ -30,6 +39,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       setState(() => _error = '请输入密码');
       return;
     }
+    
+    if (_passwordController.text.length < 6) {
+      setState(() => _error = '密码至少6位');
+      return;
+    }
+    
+    if (_passwordController.text != _confirmPasswordController.text) {
+      setState(() => _error = '两次密码不一致');
+      return;
+    }
 
     setState(() {
       _error = null;
@@ -37,18 +56,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     });
 
     try {
-      final response = await AuthService.login(
+      final response = await AuthService.register(
         phone: _phoneController.text.trim(),
         password: _passwordController.text,
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('登录成功！欢迎 ${response.user.phone}')),
+          SnackBar(content: Text('注册成功！欢迎 ${response.user.phone}')),
         );
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const SplashScreen()),
-        );
+        Navigator.of(context).pop(); // 返回登录界面
       }
     } catch (e) {
       if (mounted) {
@@ -65,6 +82,18 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: theme.colorScheme.primary,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          '注册账号',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
@@ -77,10 +106,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    '妈妈的照片 登录',
+                    '创建新账号',
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 24),
+                  
+                  // 手机号输入
                   TextField(
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
@@ -97,30 +128,55 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     enabled: !_isLoading,
                   ),
                   const SizedBox(height: 16),
+                  
+                  // 密码输入
                   TextField(
                     controller: _passwordController,
-                    obscureText: _obscure,
+                    obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       labelText: '密码',
-                      hintText: '请输入密码',
+                      hintText: '请输入密码（至少6位）',
                       border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock),
                       suffixIcon: IconButton(
-                        icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () => setState(() => _obscure = !_obscure),
+                        icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
                     ),
                     enabled: !_isLoading,
                   ),
+                  const SizedBox(height: 16),
+                  
+                  // 确认密码输入
+                  TextField(
+                    controller: _confirmPasswordController,
+                    obscureText: _obscureConfirmPassword,
+                    decoration: InputDecoration(
+                      labelText: '确认密码',
+                      hintText: '请再次输入密码',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscureConfirmPassword ? Icons.visibility : Icons.visibility_off),
+                        onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                      ),
+                    ),
+                    enabled: !_isLoading,
+                  ),
+                  
                   if (_error != null) ...[
                     const SizedBox(height: 12),
                     Text(_error!, style: const TextStyle(color: Colors.red)),
                   ],
+                  
                   const SizedBox(height: 24),
+                  
+                  // 注册按钮
                   GestureDetector(
                     onTapDown: (_) => setState(() => _buttonScale = 0.96),
                     onTapUp: (_) => setState(() => _buttonScale = 1.0),
                     onTapCancel: () => setState(() => _buttonScale = 1.0),
-                    onTap: _isLoading ? null : _login,
+                    onTap: _isLoading ? null : _register,
                     child: AnimatedScale(
                       scale: _buttonScale,
                       duration: const Duration(milliseconds: 100),
@@ -154,7 +210,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                 )
                               : const Text(
-                                  '登录',
+                                  '注册',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 18,
@@ -169,40 +225,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   
                   const SizedBox(height: 16),
                   
-                  // 注册和忘记密码链接
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton(
-                        onPressed: _isLoading ? null : () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                          );
-                        },
-                        child: const Text('注册账号'),
-                      ),
-                      TextButton(
-                        onPressed: _isLoading ? null : () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('忘记密码'),
-                              content: const Text(
-                                '请联系管理员重置密码。\n\n'
-                                '管理员可以在Supabase控制台中手动修改您的密码。',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: const Text('知道了'),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                        child: const Text('忘记密码'),
-                      ),
-                    ],
+                  // 返回登录链接
+                  TextButton(
+                    onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                    child: const Text(
+                      '已有账号？返回登录',
+                      style: TextStyle(fontSize: 16),
+                    ),
                   ),
                 ],
               ),

@@ -1,254 +1,315 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
-import uuid
-from datetime import datetime
-import json
-from werkzeug.utils import secure_filename
+import jwt
+import secrets
+from datetime import datetime, timedelta
 from typing import Optional
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+
+# JWT配置
+app.config['SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'your-secret-key-change-in-production')
+JWT_SECRET_KEY = app.config['SECRET_KEY']
 
 # Supabase配置
 SUPABASE_URL = os.environ.get('SUPABASE_URL', 'your-supabase-url')
 SUPABASE_KEY = os.environ.get('SUPABASE_KEY', 'your-supabase-key')
 
-# 只有在配置了Supabase时才初始化客户端
+# 初始化Supabase客户端
 supabase = None
 if SUPABASE_URL != 'your-supabase-url' and SUPABASE_KEY != 'your-supabase-key':
     try:
         from supabase import create_client, Client
-        supabase: Optional[Client] = create_client(SUPABASE_URL, SUPABASE_KEY)
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        print("Supabase客户端初始化成功")
     except Exception as e:
         print(f"Supabase初始化失败: {e}")
 
-# 文件上传配置
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+def generate_token(user_id: str, phone: str) -> str:
+    """生成JWT token"""
+    payload = {
+        'user_id': user_id,
+        'phone': phone,
+        'exp': datetime.utcnow() + timedelta(days=30),  # 30天过期
+        'iat': datetime.utcnow()
+    }
+    return jwt.encode(payload, JWT_SECRET_KEY, algorithm='HS256')
 
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+def verify_token(token: str) -> Optional[dict]:
+    """验证JWT token"""
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=['HS256'])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
 
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+@app.route('/health', methods=['GET'])
+def health_check():
+    """健康检查"""
+    return jsonify({
+        'status': 'ok',
+        'message': '服务运行正常',
+        'timestamp': datetime.now().isoformat(),
+        'supabase_configured': supabase is not None
+    })
+
+@app.route('/test-db', methods=['GET'])
+def test_database():
+    """测试数据库连接"""
+    if not supabase:
+        return jsonify({'error': 'Supabase未配置'}), 500
+    
+    try:
+        # 测试用户表
+        users_response = supabase.table('users').select('count').execute()
+        users_count = len(users_response.data) if users_response.data else 0
+        
+        # 测试照片表
+        photos_response = supabase.table('photos').select('count').execute()
+        photos_count = len(photos_response.data) if photos_response.data else 0
+        
+        return jsonify({
+            'status': 'success',
+            'message': '数据库连接正常',
+            'users_count': users_count,
+            'photos_count': photos_count,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'数据库连接失败: {str(e)}',
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+@app.route('/migrate-db', methods=['POST'])
+def migrate_database():
+    """数据库迁移"""
+    if not supabase:
+        return jsonify({'error': 'Supabase未配置'}), 500
+    
+    try:
+        # 检查用户表结构
+        users_response = supabase.table('users').select('*').limit(1).execute()
+        
+        # 尝试更新默认用户的密码字段
+        try:
+            update_result = supabase.table('users').update({
+                'password': '194201'
+            }).eq('id', '00000000-0000-0000-0000-000000000000').execute()
+            
+            return jsonify({
+                'status': 'success',
+                'message': '数据库迁移完成（密码字段已存在）',
+                'result': str(update_result),
+                'timestamp': datetime.now().isoformat()
+            })
+        except Exception as update_error:
+            # 如果更新失败，说明没有password字段
+            return jsonify({
+                'status': 'error',
+                'message': f'需要手动添加password字段到users表: {str(update_error)}',
+                'hint': '请在Supabase控制台中手动添加password字段',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'数据库迁移失败: {str(e)}',
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
 @app.route('/photos', methods=['GET'])
 def get_photos():
-    """获取所有照片，支持分页和缓存"""
+    """获取照片列表（只返回当前用户的照片）"""
     if not supabase:
-        return jsonify({'error': 'Supabase未配置'}), 500
-    
-    try:
-        # 获取分页参数
-        limit = request.args.get('limit')
-        offset = int(request.args.get('offset', 0))
-        
-        # 优化查询：只选择需要的字段，按年份和创建时间排序
-        query = supabase.table('photos').select('id,url,thumbnail_url,created_at,year,tags,description')
-        
-        # 按年份降序，然后按创建时间降序
-        query = query.order('year', desc=True).order('created_at', desc=True)
-        
-        # 如果没有指定limit，返回所有照片
-        if limit is None:
-            response = query.execute()
-        else:
-            limit = int(limit)
-            start = offset
-            end = offset + limit - 1
-            response = query.range(start, end).execute()
-        
-        photos = response.data
-        return jsonify(photos)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/search', methods=['GET'])
-def search_photos():
-    """按多种条件搜索照片（优化版本）"""
-    if not supabase:
-        return jsonify({'error': 'Supabase未配置'}), 500
-    
-    query = request.args.get('name', '').strip()
-    if not query:
-        return jsonify([])
-    
-    try:
-        # 尝试数字搜索（年份）
-        if query.isdigit():
-            year = int(query)
-            if 1900 <= year <= 2030:
-                response = supabase.table('photos').select('*').eq('year', year).order('created_at', desc=True).execute()
-                return jsonify(response.data)
-        
-        # 尝试年代搜索（如"2020年代"）
-        if query.endswith('年代') and query[:-2].isdigit():
-            decade = int(query[:-2])
-            start_year = decade
-            end_year = decade + 9
-            response = supabase.table('photos').select('*').gte('year', start_year).lte('year', end_year).order('created_at', desc=True).execute()
-            return jsonify(response.data)
-        
-        # 对于其他搜索，使用文本搜索
-        # 注意：这里简化处理，实际可以使用PostgreSQL的全文搜索功能
-        response = supabase.table('photos').select('*').order('created_at', desc=True).execute()
-        all_photos = response.data
-        
-        # 在Python中进行文本搜索（作为后备方案）
-        query_lower = query.lower()
-        filtered_photos = []
-        
-        for photo in all_photos:
-            # 搜索人物标签
-            tags = photo.get('tags', [])
-            tag_match = any(tag.lower().find(query_lower) != -1 for tag in tags)
-            
-            # 搜索简介
-            description = photo.get('description', '')
-            description_match = description and description.lower().find(query_lower) != -1
-            
-            # 如果任一字段匹配，则包含此照片
-            if tag_match or description_match:
-                filtered_photos.append(photo)
-        
-        return jsonify(filtered_photos)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/upload', methods=['POST'])
-def upload_photo():
-    """上传照片"""
-    if not supabase:
-        return jsonify({'error': 'Supabase未配置'}), 500
-    
-    try:
-        if 'image' not in request.files:
-            return jsonify({'error': '没有文件'}), 400
-        
-        file = request.files['image']
-        if file.filename == '':
-            return jsonify({'error': '没有选择文件'}), 400
-        
-        if file and allowed_file(file.filename):
-            # 生成唯一文件名
-            if file.filename is None:
-                return jsonify({'error': '文件名不能为空'}), 400
-            filename = secure_filename(file.filename)
-            file_extension = filename.rsplit('.', 1)[1].lower()
-            unique_filename = f"{uuid.uuid4()}.{file_extension}"
-            
-            try:
-                # 直接读取文件内容到内存，避免文件系统权限问题
-                file_content = file.read()
-                print(f"文件大小: {len(file_content)} bytes")
-                
-                # 上传到Supabase Storage
-                bucket_name = 'photos'
-                storage_path = f"photos/{unique_filename}"
-                
-                supabase.storage.from_(bucket_name).upload(storage_path, file_content)
-                print(f"文件已上传到 Supabase Storage: {storage_path}")
-                
-                # 获取公开URL
-                public_url = supabase.storage.from_(bucket_name).get_public_url(storage_path)
-                print(f"公开URL: {public_url}")
-                
-            except Exception as storage_error:
-                print(f"Storage 错误: {storage_error}")
-                return jsonify({'error': f'Storage error: {storage_error}'}), 500
-            
-            # 解析请求数据
-            tags = json.loads(request.form.get('tags', '[]'))
-            year = request.form.get('year')
-            description = request.form.get('description', '')
-            
-            # 创建照片记录
-            photo_data = {
-                'id': str(uuid.uuid4()),
-                'url': public_url,
-                'thumbnail_url': public_url,  # 可以后续生成缩略图
-                'tags': tags,
-                'year': int(year) if year else None,
-                'description': description if description else None,
+        # 如果没有数据库连接，返回测试数据
+        return jsonify([
+            {
+                'id': 'test1',
+                'url': 'https://example.com/test1.jpg',
+                'tags': ['测试'],
+                'description': '测试照片',
                 'created_at': datetime.now().isoformat()
             }
-            
-            try:
-                # 保存到数据库
-                supabase.table('photos').insert(photo_data).execute()
-                print(f"照片记录已保存到数据库: {photo_data['id']}")
-            except Exception as db_error:
-                print(f"数据库错误: {db_error}")
-                return jsonify({'error': f'Database error: {db_error}'}), 500
-            
-            return jsonify(photo_data)
-        
-        return jsonify({'error': '不支持的文件类型'}), 400
-        
+        ])
+    # 认证token
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': '缺少认证token'}), 401
+    token = auth_header.split(' ')[1]
+    payload = verify_token(token)
+    if not payload:
+        return jsonify({'error': 'token无效或已过期'}), 401
+    user_id = payload['user_id']
+    try:
+        # 只查当前用户的照片
+        response = supabase.table('photos').select('*').eq('user_id', user_id).execute()
+        return jsonify(response.data)
     except Exception as e:
-        print(f"上传错误: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'error': f'获取照片失败: {str(e)}'
+        }), 500
 
-@app.route('/tag', methods=['POST'])
-def update_photo_tags():
-    """更新照片标签和描述"""
+@app.route('/auth/register', methods=['POST'])
+def register_user():
+    """用户注册"""
     if not supabase:
         return jsonify({'error': 'Supabase未配置'}), 500
     
     try:
         data = request.get_json()
-        photo_id = data.get('photo_id')
-        tags = data.get('tags', [])
-        year = data.get('year')
-        description = data.get('description')
+        phone = data.get('phone')
+        password = data.get('password')
+        username = data.get('username', phone)  # 默认使用手机号作为用户名
         
-        if not photo_id:
-            return jsonify({'error': '缺少照片ID'}), 400
+        if not phone or not password:
+            return jsonify({'error': '手机号和密码不能为空'}), 400
         
-        # 更新照片标签和描述
-        update_data = {'tags': tags}
-        if year:
-            update_data['year'] = int(year)
-        if description is not None:  # 允许空字符串
-            update_data['description'] = description
+        # 检查手机号是否已存在
+        existing_user = supabase.table('users').select('*').eq('phone', phone).execute()
+        if existing_user.data:
+            return jsonify({'error': '该手机号已注册'}), 409
         
-        response = supabase.table('photos').update(update_data).eq('id', photo_id).execute()
+        # 创建新用户
+        new_user = supabase.table('users').insert({
+            'phone': phone,
+            'username': username,
+            'password': password,  # 注意：生产环境应该加密密码
+            'created_at': datetime.now().isoformat()
+        }).execute()
         
-        if response.data:
-            return jsonify(response.data[0])
+        if new_user.data:
+            user = new_user.data[0]
+            # 生成token
+            token = generate_token(user['id'], user['phone'])
+            
+            return jsonify({
+                'status': 'success',
+                'message': '注册成功',
+                'user': {
+                    'id': user['id'],
+                    'phone': user['phone'],
+                    'created_at': user.get('created_at', datetime.now().isoformat())
+                },
+                'token': token
+            })
         else:
-            return jsonify({'error': '照片不存在'}), 404
+            return jsonify({'error': '注册失败'}), 500
             
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'注册失败: {str(e)}'}), 500
 
-@app.route('/health', methods=['GET'])
-def health_check():
-    """健康检查"""
+@app.route('/auth/login', methods=['POST'])
+def login_user():
+    """用户登录"""
+    if not supabase:
+        return jsonify({'error': 'Supabase未配置'}), 500
+    
     try:
-        # 简单的数据库连接测试
-        if supabase:
-            # 执行一个轻量级查询来测试连接
-            response = supabase.table('photos').select('id').limit(1).execute()
+        data = request.get_json()
+        phone = data.get('phone')
+        password = data.get('password')
+        
+        if not phone or not password:
+            return jsonify({'error': '手机号和密码不能为空'}), 400
+        
+        # 查找用户
+        user_response = supabase.table('users').select('*').eq('phone', phone).eq('password', password).execute()
+        
+        if user_response.data:
+            user = user_response.data[0]
+            # 生成token
+            token = generate_token(user['id'], user['phone'])
+            # 更新最后登录时间
+            try:
+                supabase.table('users').update({
+                    'last_login_at': datetime.now().isoformat()
+                }).eq('id', user['id']).execute()
+            except:
+                pass  # 如果last_login_at字段不存在，忽略错误
+            
             return jsonify({
-                'status': 'ok', 
-                'timestamp': datetime.now().isoformat(),
-                'database': 'connected',
-                'photo_count': len(response.data) if response.data else 0
+                'status': 'success',
+                'message': '登录成功',
+                'user': {
+                    'id': user['id'],
+                    'phone': user['phone'],
+                    'created_at': user.get('created_at', datetime.now().isoformat()),
+                    'last_login_at': datetime.now().isoformat()
+                },
+                'token': token
             })
         else:
-            return jsonify({
-                'status': 'ok', 
-                'timestamp': datetime.now().isoformat(),
-                'database': 'not_configured'
-            })
+            return jsonify({'error': '手机号或密码错误'}), 401
+            
+    except Exception as e:
+        return jsonify({'error': f'登录失败: {str(e)}'}), 500
+
+@app.route('/auth/validate', methods=['GET'])
+def validate_token():
+    """验证token"""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': '缺少认证token'}), 401
+    
+    token = auth_header.split(' ')[1]
+    payload = verify_token(token)
+    
+    if not payload:
+        return jsonify({'error': 'token无效或已过期'}), 401
+    
+    return jsonify({
+        'status': 'success',
+        'message': 'token有效',
+        'user_id': payload['user_id'],
+        'phone': payload['phone']
+    })
+
+@app.route('/photos', methods=['POST'])
+def upload_photo():
+    """上传照片（自动写入user_id）"""
+    if not supabase:
+        return jsonify({'error': 'Supabase未配置'}), 500
+    # 认证token
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': '缺少认证token'}), 401
+    token = auth_header.split(' ')[1]
+    payload = verify_token(token)
+    if not payload:
+        return jsonify({'error': 'token无效或已过期'}), 401
+    user_id = payload['user_id']
+    try:
+        data = request.get_json()
+        # 组装照片数据
+        photo_data = {
+            'user_id': user_id,
+            'tags': data.get('tags', []),
+            'description': data.get('description'),
+            'year': data.get('year'),
+            'url': data.get('url'),
+            'thumbnail_url': data.get('thumbnail_url'),
+            'created_at': datetime.now().isoformat()
+        }
+        # 插入照片
+        result = supabase.table('photos').insert(photo_data).execute()
+        if result.data:
+            return jsonify(result.data[0])
+        else:
+            return jsonify({'error': '照片保存失败'}), 500
     except Exception as e:
         return jsonify({
-            'status': 'error', 
-            'timestamp': datetime.now().isoformat(),
-            'error': str(e)
+            'error': f'上传照片失败: {str(e)}'
         }), 500
 
 if __name__ == '__main__':

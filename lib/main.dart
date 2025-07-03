@@ -2,30 +2,40 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'services/photo_provider.dart';
-import 'screens/splash_screen.dart';
+import 'services/auth_service.dart';
 import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
+import 'utils/debug_helper.dart';
 import 'dart:developer' as developer;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() {
-  // 启用Flutter绑定
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // 预加载数据
-  _preloadData();
-  
+  await Supabase.initialize(
+    url: 'https://ufxuetpndfqqvuapfjli.supabase.co',
+    anonKey: '你的 anon key',
+  );
+  await _preloadData();
   runApp(const MyApp());
 }
 
 // 预加载数据
 Future<void> _preloadData() async {
   try {
+    // 初始化认证服务
+    await AuthService.initialize();
+    
     // 预热API服务
     await Future.delayed(const Duration(milliseconds: 100));
+    
+    // 运行完整的网络连接测试
+    final debugResults = await DebugHelper.testNetworkConnection();
+    DebugHelper.printDebugInfo(debugResults);
     
     // 在后台预热健康检查端点
     try {
       final response = await http.get(
-        Uri.parse('https://momphotos.onrender.com/health'),
+        Uri.parse('http://192.168.14.64:8080/health'),
       ).timeout(const Duration(seconds: 5));
       developer.log('API预热成功: ${response.statusCode}');
     } catch (e) {
@@ -33,6 +43,7 @@ Future<void> _preloadData() async {
     }
   } catch (e) {
     // 静默处理错误，不影响应用启动
+    developer.log('预加载数据失败: $e');
   }
 }
 
@@ -56,7 +67,7 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
           fontFamily: 'Roboto',
         ),
-        home: const LoginScreen(),
+        home: AuthService.isLoggedIn ? const SplashScreen() : const LoginScreen(),
         debugShowCheckedModeBanner: false,
       ),
     );

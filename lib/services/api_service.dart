@@ -3,12 +3,14 @@ import 'dart:io';
 import 'dart:async';
 import 'package:http/http.dart' as http;
 import '../models/photo.dart';
+import '../models/user.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthResponse;
+import 'package:path/path.dart' as p;
 
 class ApiService {
-  // 替换为你的 Flask 后端 URL
-  // 注意：请确认 Render 部署成功后的正确 URL
-  static const String baseUrl = 'https://momphotos.onrender.com';
-  // 如果上面的 URL 不工作，请使用 Render 控制台中的实际 URL
+  // 本地开发服务器 URL
+  static const String baseUrl = 'http://192.168.14.64:8080';
+  // 生产环境 URL: 'https://momphotos.onrender.com'
   
   // 设置超时时间
   static const Duration timeout = Duration(seconds: 30);
@@ -40,7 +42,12 @@ class ApiService {
       if (offset != null) queryParams['offset'] = offset.toString();
       
       final uri = Uri.parse('$baseUrl/photos').replace(queryParameters: queryParams);
-      final response = await http.get(uri).timeout(timeout);
+      final response = await http.get(
+        uri,
+        headers: {
+          if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+        },
+      ).timeout(timeout);
       
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -131,6 +138,108 @@ class ApiService {
     _lastCacheTime = null;
   }
 
+  // 用户认证相关方法
+  static String? _authToken;
+
+  // 设置认证token
+  static void setAuthToken(String token) {
+    _authToken = token;
+  }
+
+  // 清除认证token
+  static void clearAuthToken() {
+    _authToken = null;
+  }
+
+  // 获取认证token
+  static String? getAuthToken() {
+    return _authToken;
+  }
+
+  // 用户注册
+  static Future<AuthResponse> register({
+    required String phone,
+    required String password,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'phone': phone,
+          'password': password,
+        }),
+      ).timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final authResponse = AuthResponse.fromJson(data);
+        // 保存token
+        setAuthToken(authResponse.token);
+        return authResponse;
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['error'] ?? '注册失败');
+      }
+    } on TimeoutException {
+      throw Exception('请求超时，请检查网络连接');
+    } on SocketException {
+      throw Exception('网络连接失败，请检查网络设置');
+    } catch (e) {
+      throw Exception('注册错误: $e');
+    }
+  }
+
+  // 用户登录
+  static Future<AuthResponse> login({
+    required String phone,
+    required String password,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'phone': phone,
+          'password': password,
+        }),
+      ).timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final authResponse = AuthResponse.fromJson(data);
+        // 保存token
+        setAuthToken(authResponse.token);
+        return authResponse;
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['error'] ?? '登录失败');
+      }
+    } on TimeoutException {
+      throw Exception('请求超时，请检查网络连接');
+    } on SocketException {
+      throw Exception('网络连接失败，请检查网络设置');
+    } catch (e) {
+      throw Exception('登录错误: $e');
+    }
+  }
+
+  // 验证token（用于检查登录状态）
+  static Future<bool> validateToken() async {
+    if (_authToken == null) return false;
+    
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/auth/validate'),
+        headers: {'Authorization': 'Bearer $_authToken'},
+      ).timeout(timeout);
+
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // 上传照片
   static Future<Photo> uploadPhoto({
     required File imageFile,
@@ -139,38 +248,40 @@ class ApiService {
     String? description,
   }) async {
     try {
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$baseUrl/upload'),
-      );
+      // 1. 上传图片到 Supabase Storage
+      final supabase = Supabase.instance.client;
+      final fileBytes = await imageFile.readAsBytes();
+      final fileName =
+          'photos/${DateTime.now().millisecondsSinceEpoch}_${p.basename(imageFile.path)}';
+      final storageResponse = await supabase.storage
+          .from('photos')
+          .uploadBinary(fileName, fileBytes, fileOptions: FileOptions(contentType: 'image/jpeg'));
+      if (storageResponse.isEmpty) {
+        throw Exception('图片上传到 Supabase Storage 失败');
+      }
+      final imageUrl = supabase.storage.from('photos').getPublicUrl(fileName);
 
-      // 添加图片文件
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'image',
-          imageFile.path,
-        ),
-      );
-
-      // 添加其他数据
-      request.fields['tags'] = json.encode(tags);
-      if (year != null) request.fields['year'] = year.toString();
-      if (description != null) request.fields['description'] = description;
-
-      final response = await request.send().timeout(timeout);
-      final responseData = await response.stream.bytesToString();
+      // 2. POST 元数据到后端
+      final response = await http.post(
+        Uri.parse('$baseUrl/photos'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+        },
+        body: json.encode({
+          'url': imageUrl,
+          'tags': tags,
+          if (year != null) 'year': year,
+          if (description != null) 'description': description,
+        }),
+      ).timeout(timeout);
 
       if (response.statusCode == 200) {
-        final data = json.decode(responseData);
+        final data = json.decode(response.body);
         return Photo.fromJson(data);
       } else {
-        // 尝试解析错误信息
-        try {
-          final errorData = json.decode(responseData);
-          throw Exception('上传失败: ${errorData['error'] ?? '未知错误'} (状态: ${response.statusCode})');
-        } catch (e) {
-          throw Exception('上传失败: $responseData (状态: ${response.statusCode})');
-        }
+        final errorData = json.decode(response.body);
+        throw Exception('上传失败: ${(errorData['error'] ?? response.body)}');
       }
     } on TimeoutException {
       throw Exception('上传超时，请检查网络连接');

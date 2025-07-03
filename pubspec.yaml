@@ -2,7 +2,7 @@ name: momphoto
 description: "A photo management app with cloud storage and tagging features."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.8.1
@@ -30,8 +30,10 @@ dependencies:
 
   # Utilities
   intl: ^0.18.1
-  path: ^1.8.3
+  path: ^1.9.1
   permission_handler: ^11.3.0
+  shared_preferences: ^2.2.2
+  supabase_flutter: ^2.9.1
 
 dev_dependencies:
   flutter_test:

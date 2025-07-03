@@ -50,11 +50,12 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>需要访问您的照片库用于上传和显示照片</string>
+	<string>We need access to your photo library so you can upload photos of your family to the app and view them in your collection.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>需要访问您的相机用于拍摄照片</string>
+	<string>We use the camera to let you take photos of your family and loved ones, so you can upload and organize them in the app.
+&lt;string&gt;We use the camera to let you take photos of your family and loved ones, so you can upload and organize them in the app.&lt;/string&gt;</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>需要保存照片到您的相册</string>
+	<string>We need permission to save photos to your photo library so you can keep a copy of your family moments captured in the app.</string>
 	<key>UIStatusBarHidden</key>
 	<false/>
 </dict>

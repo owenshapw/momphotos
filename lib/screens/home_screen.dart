@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/photo_provider.dart';
+import '../services/auth_service.dart';
 import '../widgets/photo_grid.dart';
 import '../widgets/search_bar.dart';
 import 'upload_screen.dart';
 import 'batch_upload_screen.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,6 +39,62 @@ class _HomeScreenState extends State<HomeScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          // 用户信息按钮
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.account_circle),
+            tooltip: '用户信息',
+            onSelected: (value) async {
+              if (value == 'logout') {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('确认登出'),
+                    content: const Text('确定要退出登录吗？'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('取消'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('确定'),
+                      ),
+                    ],
+                  ),
+                );
+                
+                if (confirmed == true) {
+                  await AuthService.logout();
+                  if (!context.mounted) return;
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                }
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'user_info',
+                enabled: false,
+                child: Text(
+                  '当前用户: ${AuthService.currentUser?.phone ?? '未知'}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('退出登录', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
+          ),
           // 批量上传按钮
           IconButton(
             icon: const Icon(Icons.upload_file),
@@ -157,7 +215,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       photoProvider.clearError();
                                       // 延迟重试
                                       Future.delayed(const Duration(seconds: 2), () {
-                                        if (mounted) {
+                                        if (context.mounted) {
                                           photoProvider.loadPhotos();
                                         }
                                       });
