@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import '../models/photo.dart';
 import 'api_service.dart';
@@ -85,9 +86,9 @@ class PhotoProvider with ChangeNotifier {
     // 检查用户是否发生变化
     final currentUserId = AuthService.currentUser?.id;
     if (currentUserId != null && _lastLoadedUserId != currentUserId) {
-      print('🔄 检测到用户切换，重置PhotoProvider状态');
-      print('  上次加载用户ID: $_lastLoadedUserId');
-      print('  当前用户ID: $currentUserId');
+          developer.log('🔄 检测到用户切换，重置PhotoProvider状态');
+    developer.log('  上次加载用户ID: $_lastLoadedUserId');
+    developer.log('  当前用户ID: $currentUserId');
       reset();
       _lastLoadedUserId = currentUserId;
       forceRefresh = true; // 强制刷新
@@ -137,7 +138,7 @@ class PhotoProvider with ChangeNotifier {
         _lastLoadedUserId = currentUserId; // 记录当前加载的用户ID
         notifyListeners();
         
-        print('📸 照片加载完成: ${_photos.length} 张照片 (用户ID: $currentUserId)');
+        developer.log('📸 照片加载完成: ${_photos.length} 张照片 (用户ID: $currentUserId)');
         
         return; // 成功则退出
       } catch (e) {
@@ -463,7 +464,7 @@ class PhotoProvider with ChangeNotifier {
     _lastLoadedUserId = null; // 清除上次加载的用户ID
     ApiService.clearCache(); // 清除API缓存
     notifyListeners();
-    print('🔄 PhotoProvider状态已重置');
+    developer.log('🔄 PhotoProvider状态已重置');
   }
 
   // 添加搜索历史

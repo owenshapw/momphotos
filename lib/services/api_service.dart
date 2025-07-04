@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide AuthResponse;
 import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
 import '../services/auth_service.dart';
+import 'dart:developer' as developer;
 
 class ApiService {
   // 本地开发服务器 URL
@@ -32,7 +33,7 @@ class ApiService {
       _cachedPhotos = null;
       _lastCacheTime = null;
       _cachedUserId = currentUserId;
-      print('🔄 ApiService: 用户切换，清空缓存 (${_cachedUserId} -> $currentUserId)');
+      developer.log('🔄 ApiService: 用户切换，清空缓存 ($_cachedUserId -> $currentUserId)');
     }
     
     // 检查缓存
@@ -71,7 +72,7 @@ class ApiService {
           _cachedPhotos = photos;
           _lastCacheTime = DateTime.now();
           _cachedUserId = currentUserId; // 记录当前用户ID
-          print('📸 ApiService: 缓存已更新 (用户ID: $currentUserId, 照片数: ${photos.length})');
+          developer.log('📸 ApiService: 缓存已更新 (用户ID: $currentUserId, 照片数: ${photos.length})');
         }
         
         return photos;
@@ -152,7 +153,7 @@ class ApiService {
     _cachedPhotos = null;
     _lastCacheTime = null;
     _cachedUserId = null; // 清除用户ID
-    print('🔄 API缓存已清除');
+    developer.log('🔄 API缓存已清除');
   }
 
   // 用户认证相关方法
