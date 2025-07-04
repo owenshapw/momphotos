@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/photo_provider.dart';
 import 'home_screen.dart';
+import '../services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -81,11 +82,19 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     
     // 实际加载照片数据（使用缓存）
     try {
-      await photoProvider.loadPhotos();
-      _updateLoadingStep('准备就绪', 2);
+      // 检查用户是否已登录
+      if (AuthService.isLoggedIn) {
+        print('🔐 启动画面：用户已登录，开始加载照片');
+        await photoProvider.loadPhotos();
+        _updateLoadingStep('准备就绪', 2);
+      } else {
+        print('🔐 启动画面：用户未登录，跳过照片加载');
+        _updateLoadingStep('准备就绪', 2);
+      }
       await Future.delayed(const Duration(milliseconds: 200));
     } catch (e) {
       // 即使加载失败也继续进入主界面
+      print('❌ 启动画面：照片加载失败: $e');
       _updateLoadingStep('准备就绪', 2);
       await Future.delayed(const Duration(milliseconds: 200));
     }

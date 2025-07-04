@@ -7,22 +7,34 @@ import '../models/user.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthResponse;
 import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
+import '../services/auth_service.dart';
 
 class ApiService {
   // 本地开发服务器 URL
-  static const String baseUrl = 'http://192.168.14.64:8080';
+  static const String baseUrl = 'http://localhost:8080';
   // 生产环境 URL: 'https://momphotos.onrender.com'
   
   // 设置超时时间
   static const Duration timeout = Duration(seconds: 30);
   
-  // 缓存机制
+  // 缓存机制 - 与用户ID绑定
   static List<Photo>? _cachedPhotos;
   static DateTime? _lastCacheTime;
+  static String? _cachedUserId; // 新增：记录缓存对应的用户ID
   static const Duration cacheValidDuration = Duration(minutes: 5);
   
   // 获取所有照片（带缓存和分页）
   static Future<List<Photo>> getPhotos({int? limit, int? offset, bool forceRefresh = false}) async {
+    final currentUserId = AuthService.currentUser?.id;
+    
+    // 检查用户是否发生变化，如果变化则清空缓存
+    if (_cachedUserId != currentUserId) {
+      _cachedPhotos = null;
+      _lastCacheTime = null;
+      _cachedUserId = currentUserId;
+      print('🔄 ApiService: 用户切换，清空缓存 (${_cachedUserId} -> $currentUserId)');
+    }
+    
     // 检查缓存
     if (!forceRefresh && _cachedPhotos != null && _lastCacheTime != null) {
       final timeSinceLastCache = DateTime.now().difference(_lastCacheTime!);
@@ -58,6 +70,8 @@ class ApiService {
         if (limit == null && offset == null) {
           _cachedPhotos = photos;
           _lastCacheTime = DateTime.now();
+          _cachedUserId = currentUserId; // 记录当前用户ID
+          print('📸 ApiService: 缓存已更新 (用户ID: $currentUserId, 照片数: ${photos.length})');
         }
         
         return photos;
@@ -137,6 +151,8 @@ class ApiService {
   static void clearCache() {
     _cachedPhotos = null;
     _lastCacheTime = null;
+    _cachedUserId = null; // 清除用户ID
+    print('🔄 API缓存已清除');
   }
 
   // 用户认证相关方法

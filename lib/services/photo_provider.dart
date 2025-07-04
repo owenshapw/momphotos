@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/photo.dart';
 import 'api_service.dart';
 import 'package:http/http.dart' as http;
+import '../services/auth_service.dart';
 
 class PhotoProvider with ChangeNotifier {
   List<Photo> _photos = [];
@@ -12,6 +13,7 @@ class PhotoProvider with ChangeNotifier {
   String _searchQuery = '';
   List<String> _searchHistory = [];
   bool _hasLoaded = false; // 添加加载状态标记
+  String? _lastLoadedUserId;
 
   // Getters
   List<Photo> get photos => _photos;
@@ -80,6 +82,17 @@ class PhotoProvider with ChangeNotifier {
 
     // 加载所有照片
   Future<void> loadPhotos({bool forceRefresh = false}) async {
+    // 检查用户是否发生变化
+    final currentUserId = AuthService.currentUser?.id;
+    if (currentUserId != null && _lastLoadedUserId != currentUserId) {
+      print('🔄 检测到用户切换，重置PhotoProvider状态');
+      print('  上次加载用户ID: $_lastLoadedUserId');
+      print('  当前用户ID: $currentUserId');
+      reset();
+      _lastLoadedUserId = currentUserId;
+      forceRefresh = true; // 强制刷新
+    }
+    
     // 如果已经加载过且不强制刷新，直接返回
     if (_hasLoaded && !forceRefresh && _photos.isNotEmpty) {
       return;
@@ -121,7 +134,10 @@ class PhotoProvider with ChangeNotifier {
         
         _applySearchFilter();
         _hasLoaded = true; // 标记为已加载
+        _lastLoadedUserId = currentUserId; // 记录当前加载的用户ID
         notifyListeners();
+        
+        print('📸 照片加载完成: ${_photos.length} 张照片 (用户ID: $currentUserId)');
         
         return; // 成功则退出
       } catch (e) {
@@ -434,6 +450,20 @@ class PhotoProvider with ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  // 重置状态（用于用户切换时）
+  void reset() {
+    _photos.clear();
+    _filteredPhotos.clear();
+    _isLoading = false;
+    _error = null;
+    _searchQuery = '';
+    _hasLoaded = false;
+    _lastLoadedUserId = null; // 清除上次加载的用户ID
+    ApiService.clearCache(); // 清除API缓存
+    notifyListeners();
+    print('🔄 PhotoProvider状态已重置');
   }
 
   // 添加搜索历史

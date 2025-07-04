@@ -55,6 +55,11 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (context) {
         final provider = PhotoProvider();
+        // 如果用户已登录，立即加载照片
+        if (AuthService.isLoggedIn) {
+          // 延迟加载，确保Provider已创建
+          Future.microtask(() => provider.loadPhotos());
+        }
         return provider;
       },
       child: MaterialApp(

@@ -9,6 +9,7 @@ class AuthService {
   
   static User? _currentUser;
   static String? _currentToken;
+  static String? _lastUserId; // 跟踪上次登录的用户ID
 
   // 获取当前用户
   static User? get currentUser => _currentUser;
@@ -29,9 +30,14 @@ class AuthService {
       if (userJson != null && token != null) {
         _currentUser = User.fromJson(json.decode(userJson));
         _currentToken = token;
+        _lastUserId = _currentUser!.id; // 设置最后登录的用户ID
         ApiService.setAuthToken(token);
+        print('🔐 自动登录用户: ${_currentUser!.phone} (ID: ${_currentUser!.id})');
+      } else {
+        print('🔐 没有找到已保存的登录信息');
       }
     } catch (e) {
+      print('❌ 加载登录信息失败: $e');
       // 如果加载失败，清除本地存储
       await logout();
     }
@@ -45,6 +51,7 @@ class AuthService {
     
     _currentUser = user;
     _currentToken = token;
+    _lastUserId = user.id; // 更新最后登录的用户ID
     ApiService.setAuthToken(token);
   }
 
@@ -71,20 +78,45 @@ class AuthService {
       phone: phone,
       password: password,
     );
+    
+    // 检查是否是不同用户登录
+    final isDifferentUser = _lastUserId != null && _lastUserId != response.user.id;
+    
+    print('🔍 用户切换检测:');
+    print('  上次用户ID: $_lastUserId');
+    print('  当前用户ID: ${response.user.id}');
+    print('  是否不同用户: $isDifferentUser');
+    
     // 保存用户信息
     await _saveUserData(response.user, response.token);
+    
+    // 如果是不同用户登录，清除缓存
+    if (isDifferentUser) {
+      ApiService.clearCache();
+      print('🔄 用户切换，已清除缓存');
+    } else {
+      print('✅ 同一用户，保持缓存');
+    }
+    
     return response;
   }
 
   // 用户登出
   static Future<void> logout() async {
+    print('🚪 用户登出，清除所有状态');
+    print('  当前用户: ${_currentUser?.phone} (ID: ${_currentUser?.id})');
+    
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_userKey);
     await prefs.remove(_tokenKey);
     
     _currentUser = null;
     _currentToken = null;
+    _lastUserId = null; // 清除最后登录的用户ID
     ApiService.clearAuthToken();
+    ApiService.clearCache(); // 清除缓存
+    
+    print('✅ 登出完成，所有状态已清除');
   }
 
   // 验证token有效性
