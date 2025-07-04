@@ -11,9 +11,9 @@ import '../services/auth_service.dart';
 import 'dart:developer' as developer;
 
 class ApiService {
-  // 本地开发服务器 URL
-  static const String baseUrl = 'http://localhost:8080';
-  // 生产环境 URL: 'https://momphotos.onrender.com'
+  // 生产环境 URL
+  static const String baseUrl = 'https://momphotos.onrender.com';
+  // 本地开发服务器 URL: 'http://localhost:8080'
   
   // 设置超时时间
   static const Duration timeout = Duration(seconds: 30);

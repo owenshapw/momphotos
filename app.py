@@ -10,6 +10,19 @@ from dotenv import load_dotenv
 # 加载环境变量
 load_dotenv()
 
+# 尝试从 Render Secret Files 加载环境变量
+try:
+    with open('/etc/secrets/env.txt', 'r') as f:
+        for line in f:
+            if '=' in line and not line.startswith('#'):
+                key, value = line.strip().split('=', 1)
+                os.environ[key] = value
+    print("从 Secret Files 加载环境变量成功")
+except FileNotFoundError:
+    print("Secret Files 不存在，使用本地环境变量")
+except Exception as e:
+    print(f"加载 Secret Files 失败: {e}")
+
 app = Flask(__name__)
 CORS(app)
 
