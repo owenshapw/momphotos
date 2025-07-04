@@ -69,11 +69,11 @@ def test_database():
     
     try:
         # 测试用户表
-        users_response = supabase.table('users').select('count').execute()
+        users_response = supabase.table('users').select('*').execute()
         users_count = len(users_response.data) if users_response.data else 0
         
         # 测试照片表
-        photos_response = supabase.table('photos').select('count').execute()
+        photos_response = supabase.table('photos').select('*').execute()
         photos_count = len(photos_response.data) if photos_response.data else 0
         
         return jsonify({
@@ -152,7 +152,12 @@ def get_photos():
         return jsonify({'error': 'token无效或已过期'}), 401
     user_id = payload['user_id']
     try:
-        # 只查当前用户的照片
+        # 只查当前用户的照片，排除默认用户的照片
+        # 如果当前用户就是默认用户，则不返回任何照片
+        if user_id == '00000000-0000-0000-0000-000000000000':
+            return jsonify([])
+        
+        # 只返回当前用户的照片
         response = supabase.table('photos').select('*').eq('user_id', user_id).execute()
         return jsonify(response.data)
     except Exception as e:
