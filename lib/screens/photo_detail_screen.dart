@@ -623,7 +623,12 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
       try {
         await photoProvider.deletePhoto(photo.id);
         if (!mounted) return;
-        // 这里可以安全用 context
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('照片删除成功！')),
+        );
+        
+        // 返回上一页
         context.pop();
       } catch (e) {
         if (mounted) {

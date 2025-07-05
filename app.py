@@ -497,6 +497,66 @@ def upload_photo():
     except Exception as e:
         return jsonify({'error': f'上传照片失败: {str(e)}'}), 500
 
+@app.route('/photos/<photo_id>', methods=['DELETE'])
+def delete_photo(photo_id):
+    """删除照片"""
+    if not supabase:
+        return jsonify({'error': 'Supabase未配置'}), 500
+    
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': '缺少认证token'}), 401
+    token = auth_header.split(' ')[1]
+    payload = verify_token(token)
+    if not payload:
+        return jsonify({'error': 'token无效或已过期'}), 401
+    user_id = payload['user_id']
+    
+    try:
+        # 首先检查照片是否属于当前用户
+        photo_response = supabase.table('photos').select('*').eq('id', photo_id).eq('user_id', user_id).execute()
+        if not photo_response.data:
+            return jsonify({'error': '照片不存在或无权限删除'}), 404
+        
+        # 删除照片记录
+        result = supabase.table('photos').delete().eq('id', photo_id).eq('user_id', user_id).execute()
+        
+        if result.data:
+            return jsonify({'message': '照片删除成功'})
+        else:
+            return jsonify({'error': '照片删除失败'}), 500
+    except Exception as e:
+        return jsonify({'error': f'删除照片失败: {str(e)}'}), 500
+
+@app.route('/auth/account', methods=['DELETE'])
+def delete_account():
+    """注销账户"""
+    if not supabase:
+        return jsonify({'error': 'Supabase未配置'}), 500
+    
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': '缺少认证token'}), 401
+    token = auth_header.split(' ')[1]
+    payload = verify_token(token)
+    if not payload:
+        return jsonify({'error': 'token无效或已过期'}), 401
+    user_id = payload['user_id']
+    
+    try:
+        # 删除用户的所有照片
+        supabase.table('photos').delete().eq('user_id', user_id).execute()
+        
+        # 删除用户账户
+        result = supabase.table('users').delete().eq('id', user_id).execute()
+        
+        if result.data:
+            return jsonify({'message': '账户注销成功'})
+        else:
+            return jsonify({'error': '账户注销失败'}), 500
+    except Exception as e:
+        return jsonify({'error': f'注销账户失败: {str(e)}'}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
  
