@@ -184,8 +184,8 @@ def forgot_password():
 
         user = user_response.data[0]
         reset_token = generate_token(user['id'], user['username'], expires_delta=timedelta(minutes=15))
-        # 更新链接以指向新的HTML页面
-        reset_link = f"{FRONTEND_URL}/reset_password.html?token={reset_token}"
+        # 更新链接以指向后端的重置密码页面
+        reset_link = f"https://momphotos.onrender.com/reset-password?token={reset_token}"
 
         msg = Message(
             '重置您的密码',
@@ -206,6 +206,181 @@ def forgot_password():
         print(f"邮件发送失败: {e}")
         return jsonify({'message': '如果该邮箱已注册，您将会收到一封密码重置邮件。'})
 
+
+@app.route('/reset-password', methods=['GET'])
+def reset_password_page():
+    """重置密码页面重定向"""
+    token = request.args.get('token')
+    if not token:
+        return jsonify({'error': '缺少重置令牌'}), 400
+    
+    # 返回一个简单的HTML页面，包含重置密码的表单
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>重置密码</title>
+        <style>
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background-color: #f4f7f6;
+            }}
+            .container {{
+                background-color: #fff;
+                padding: 40px;
+                border-radius: 8px;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+                width: 100%;
+                max-width: 400px;
+                text-align: center;
+            }}
+            h1 {{
+                color: #333;
+                margin-bottom: 20px;
+            }}
+            .form-group {{
+                margin-bottom: 20px;
+                text-align: left;
+            }}
+            label {{
+                display: block;
+                margin-bottom: 8px;
+                color: #555;
+                font-weight: bold;
+            }}
+            input[type="password"] {{
+                width: 100%;
+                padding: 12px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                box-sizing: border-box;
+                font-size: 16px;
+            }}
+            button {{
+                width: 100%;
+                padding: 12px;
+                border: none;
+                border-radius: 4px;
+                background-color: #007bff;
+                color: white;
+                font-size: 16px;
+                font-weight: bold;
+                cursor: pointer;
+                transition: background-color 0.3s;
+            }}
+            button:hover {{
+                background-color: #0056b3;
+            }}
+            button:disabled {{
+                background-color: #ccc;
+                cursor: not-allowed;
+            }}
+            .message {{
+                margin-top: 20px;
+                padding: 10px;
+                border-radius: 4px;
+                display: none;
+            }}
+            .message.success {{
+                background-color: #d4edda;
+                color: #155724;
+                display: block;
+            }}
+            .message.error {{
+                background-color: #f8d7da;
+                color: #721c24;
+                display: block;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>设置新密码</h1>
+            <form id="resetForm">
+                <div class="form-group">
+                    <label for="password">新密码</label>
+                    <input type="password" id="password" name="password" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">确认新密码</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6">
+                </div>
+                <button type="submit" id="submitButton">重置密码</button>
+            </form>
+            <div id="message" class="message"></div>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {{
+                const form = document.getElementById('resetForm');
+                const passwordInput = document.getElementById('password');
+                const confirmPasswordInput = document.getElementById('confirmPassword');
+                const messageDiv = document.getElementById('message');
+                const submitButton = document.getElementById('submitButton');
+                const token = "{token}";
+
+                form.addEventListener('submit', async (event) => {{
+                    event.preventDefault();
+                    
+                    if (passwordInput.value !== confirmPasswordInput.value) {{
+                        showMessage('错误：两次输入的密码不一致。', 'error');
+                        return;
+                    }}
+
+                    if (passwordInput.value.length < 6) {{
+                        showMessage('错误：密码至少需要6位。', 'error');
+                        return;
+                    }}
+
+                    submitButton.disabled = true;
+                    submitButton.textContent = '正在处理...';
+                    
+                    try {{
+                        const apiUrl = 'https://momphotos.onrender.com/auth/reset-password';
+                        
+                        const response = await fetch(apiUrl, {{
+                            method: 'POST',
+                            headers: {{ 'Content-Type': 'application/json' }},
+                            body: JSON.stringify({{
+                                token: token,
+                                password: passwordInput.value,
+                            }}),
+                        }});
+
+                        const data = await response.json();
+
+                        if (response.ok) {{
+                            showMessage(data.message, 'success');
+                            form.style.display = 'none';
+                        }} else {{
+                            showMessage(data.error || '发生未知错误。', 'error');
+                            submitButton.disabled = false;
+                            submitButton.textContent = '重置密码';
+                        }}
+                    }} catch (error) {{
+                        showMessage('无法连接到服务器，请稍后重试。', 'error');
+                        submitButton.disabled = false;
+                        submitButton.textContent = '重置密码';
+                    }}
+                }});
+
+                function showMessage(msg, type) {{
+                    messageDiv.textContent = msg;
+                    messageDiv.className = 'message ' + type;
+                }}
+            }});
+        </script>
+    </body>
+    </html>
+    """
+    return html_content
 
 @app.route('/auth/reset-password', methods=['POST'])
 def reset_password():

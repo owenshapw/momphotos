@@ -22,7 +22,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     if (widget.token == null || widget.token!.isEmpty) {
       setState(() {
-        _error = "错误：重置令牌无效或缺失。请通过邮件中的链接访问此页面。";
+        _error = "错误：重置令牌无效或缺失。\n\n请检查您的邮箱，点击邮件中的重置密码链接来访问此页面。\n\n如果您没有收到邮件，请检查垃圾邮件文件夹，或重新申请密码重置。";
         _isLoading = false;
       });
       return;
@@ -65,8 +65,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () {
-            // 通常，用户完成或关闭此页面后应返回登录页
-            Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+            // 返回登录页
+            Navigator.of(context).pushReplacementNamed('/login');
           },
         ),
       ),
@@ -76,7 +76,29 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             Center(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 16)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 64,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.red, fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pushReplacementNamed('/forgot-password');
+                      },
+                      child: const Text('重新申请密码重置'),
+                    ),
+                  ],
+                ),
               ),
             )
           else
