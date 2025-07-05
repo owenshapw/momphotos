@@ -23,3 +23,27 @@ ALTER TABLE users ADD COLUMN email_verified_at TIMESTAMP WITH TIME ZONE;
 
 -- Verification
 SELECT 'Migration V3 completed successfully' as status;
+
+-- 1. 增加密码字段长度到255字符
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns 
+               WHERE table_name = 'users' AND column_name = 'password') THEN
+        ALTER TABLE users ALTER COLUMN password TYPE VARCHAR(255);
+    END IF;
+END $$;
+
+-- 2. 添加邮箱字段
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'users' AND column_name = 'email') THEN
+        ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE;
+    END IF;
+END $$;
+
+-- 3. 验证迁移结果
+SELECT 'Password length migration completed successfully' as status;
+SELECT column_name, data_type, character_maximum_length 
+FROM information_schema.columns 
+WHERE table_name = 'users' AND column_name IN ('password', 'email');

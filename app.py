@@ -113,14 +113,25 @@ def register_user():
             'username': username,
             'email': email,
             'password': hashed_password,
+            'created_at': datetime.now().isoformat(),
         }).execute()
         
         if new_user_response.data:
-            user = new_user_response.data[0]
+            user_id = new_user_response.data[0]['id']
+            # 重新查询用户信息以获取完整数据
+            user_response = supabase.table('users').select('*').eq('id', user_id).limit(1).execute()
+            user = user_response.data[0] if user_response.data else new_user_response.data[0]
+            
             token = generate_token(user['id'], user['username'])
             return jsonify({
                 'message': '注册成功',
-                'user': {'id': user['id'], 'username': user['username'], 'email': user['email']},
+                'user': {
+                    'id': user['id'], 
+                    'username': user['username'], 
+                    'email': user.get('email') or '',
+                    'created_at': datetime.now().isoformat(),
+                    'last_login_at': None
+                },
                 'token': token
             }), 201
         else:
@@ -157,7 +168,13 @@ def login_user():
                 
                 return jsonify({
                     'message': '登录成功',
-                    'user': {'id': user['id'], 'username': user['username'], 'email': user.get('email')},
+                    'user': {
+                        'id': user['id'], 
+                        'username': user['username'], 
+                        'email': user.get('email') or '',
+                        'created_at': user.get('created_at') or datetime.now().isoformat(),
+                        'last_login_at': user.get('last_login_at') or None
+                    },
                     'token': token
                 })
         
