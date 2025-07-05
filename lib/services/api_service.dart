@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
 import '../services/auth_service.dart';
 import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart';
 
 class ApiService {
   // 生产环境 URL
@@ -292,28 +293,51 @@ class ApiService {
     String? description,
   }) async {
     try {
-      // 1. 上传原图到 Supabase Storage
+      // 1. 上传原图到 Supabase Storage（不压缩，保持原始质量）
       final supabase = Supabase.instance.client;
-      final fileBytes = await imageFile.readAsBytes();
+      final originalBytes = kIsWeb 
+          ? await _readFileBytesWeb(imageFile.path)
+          : await imageFile.readAsBytes();
+      
+      // 添加随机数避免缓存问题
+      final random = DateTime.now().millisecondsSinceEpoch + (DateTime.now().microsecond);
       final fileName =
-          'photos/${DateTime.now().millisecondsSinceEpoch}_${p.basename(imageFile.path)}';
+          'photos/${random}_${p.basename(imageFile.path)}';
       final storageResponse = await supabase.storage
           .from('photos')
-          .uploadBinary(fileName, fileBytes, fileOptions: FileOptions(contentType: 'image/jpeg'));
+          .uploadBinary(fileName, originalBytes, fileOptions: FileOptions(contentType: 'image/jpeg'));
       if (storageResponse.isEmpty) {
         throw Exception('图片上传到 Supabase Storage 失败');
       }
       final imageUrl = supabase.storage.from('photos').getPublicUrl(fileName);
 
       // 2. 生成缩略图并上传
-      final originalImage = img.decodeImage(fileBytes);
+      // 解码原图用于生成缩略图
+      final originalImage = img.decodeImage(originalBytes);
       if (originalImage == null) {
         throw Exception('无法解码原始图片');
       }
-      final thumbnail = img.copyResize(originalImage, width: 300, height: 300);
-      final thumbnailBytes = img.encodeJpg(thumbnail, quality: 80);
+      
+      // 计算缩略图尺寸，保持宽高比
+      final originalWidth = originalImage.width;
+      final originalHeight = originalImage.height;
+      final maxSize = 400; // 增加缩略图尺寸，提高清晰度
+      
+      int thumbnailWidth, thumbnailHeight;
+      if (originalWidth > originalHeight) {
+        // 横向图片
+        thumbnailWidth = maxSize;
+        thumbnailHeight = (originalHeight * maxSize / originalWidth).round();
+      } else {
+        // 纵向图片
+        thumbnailHeight = maxSize;
+        thumbnailWidth = (originalWidth * maxSize / originalHeight).round();
+      }
+      
+      final thumbnail = img.copyResize(originalImage, width: thumbnailWidth, height: thumbnailHeight, interpolation: img.Interpolation.cubic);
+      final thumbnailBytes = img.encodeJpg(thumbnail, quality: 85); // 适度的压缩质量
       final thumbFileName =
-          'photos/thumbnails/${DateTime.now().millisecondsSinceEpoch}_${p.basename(imageFile.path)}';
+          'photos/thumbnails/${random}_${p.basename(imageFile.path)}';
       final thumbStorageResponse = await supabase.storage
           .from('photos')
           .uploadBinary(thumbFileName, thumbnailBytes, fileOptions: FileOptions(contentType: 'image/jpeg'));
@@ -438,6 +462,20 @@ class ApiService {
       throw Exception('网络连接失败，请检查网络设置');
     } catch (e) {
       throw Exception('更新错误: $e');
+    }
+  }
+
+  // Web平台文件读取方法
+  static Future<Uint8List> _readFileBytesWeb(String filePath) async {
+    try {
+      final response = await http.get(Uri.parse(filePath));
+      if (response.statusCode == 200) {
+        return response.bodyBytes;
+      } else {
+        throw Exception('无法读取文件: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('读取文件失败: $e');
     }
   }
 } 

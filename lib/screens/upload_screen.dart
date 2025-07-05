@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -14,7 +15,7 @@ class UploadScreen extends StatefulWidget {
 }
 
 class _UploadScreenState extends State<UploadScreen> {
-  File? _selectedImage;
+  XFile? _selectedImage;
   final List<String> _tags = [];
   final TextEditingController _tagController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
@@ -34,14 +35,14 @@ class _UploadScreenState extends State<UploadScreen> {
     try {
       final XFile? image = await _picker.pickImage(
         source: source,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 85,
+        maxWidth: 3840, // 提高最大宽度到4K
+        maxHeight: 3840, // 提高最大高度到4K
+        imageQuality: 95, // 提高图片质量
       );
 
       if (image != null) {
         setState(() {
-          _selectedImage = File(image.path);
+          _selectedImage = image;
         });
       }
     } catch (e) {
@@ -150,17 +151,46 @@ class _UploadScreenState extends State<UploadScreen> {
                     if (_selectedImage != null) ...[
                       Container(
                         width: double.infinity,
-                        height: 200,
+                        height: 300,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.grey[300]!),
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            _selectedImage!,
-                            fit: BoxFit.cover,
-                          ),
+                          child: kIsWeb
+                              ? Image.network(
+                                  _selectedImage!.path,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: Colors.grey[200],
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.broken_image,
+                                          color: Colors.grey,
+                                          size: 48,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                )
+                              : Image.file(
+                                  File(_selectedImage!.path),
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: Colors.grey[200],
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.broken_image,
+                                          color: Colors.grey,
+                                          size: 48,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
                         ),
                       ),
                       const SizedBox(height: 16),

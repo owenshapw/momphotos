@@ -64,10 +64,12 @@ final _router = GoRouter(
       path: '/photo-detail',
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>?;
-        final photo = extra?['photo'] as Photo?;
-        final photos = extra?['photos'] as List<Photo>?;
-        if (photo != null && photos != null) {
-          return PhotoDetailScreen(photo: photo, photos: photos);
+        if (extra != null) {
+          final photo = extra['photo'] as Photo?;
+          final photos = extra['photos'] as List<Photo>?;
+          if (photo != null && photos != null) {
+            return PhotoDetailScreen(photo: photo, photos: photos);
+          }
         }
         return const LoginScreen(); // 回退到登录页
       },
@@ -75,9 +77,12 @@ final _router = GoRouter(
     GoRoute(
       path: '/photo-edit',
       builder: (context, state) {
-        final photo = state.extra as Photo?;
-        if (photo != null) {
-          return PhotoEditScreen(photo: photo);
+        final extra = state.extra as Map<String, dynamic>?;
+        if (extra != null) {
+          final photo = extra['photo'] as Photo?;
+          if (photo != null) {
+            return PhotoEditScreen(photo: photo);
+          }
         }
         return const LoginScreen(); // 回退到登录页
       },
@@ -160,7 +165,10 @@ class MyApp extends StatelessWidget {
         // 如果用户已登录，立即加载照片
         if (AuthService.isLoggedIn) {
           // 延迟加载，确保Provider已创建
-          Future.microtask(() => provider.loadPhotos());
+          Future.microtask(() async {
+            // 强制刷新，确保加载当前用户的照片
+            await provider.loadPhotos(forceRefresh: true);
+          });
         }
         return provider;
       },

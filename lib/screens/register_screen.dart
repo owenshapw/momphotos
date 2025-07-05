@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/photo_provider.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -71,6 +73,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       );
 
       if (mounted) {
+        // 重置PhotoProvider状态，确保新用户看到空照片列表
+        context.read<PhotoProvider>().reset();
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('注册成功！欢迎 ${response.user.username}')),
         );

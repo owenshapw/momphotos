@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
+import '../services/photo_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -42,10 +44,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       );
 
       if (mounted) {
+        // 重置PhotoProvider状态，确保加载新用户的照片
+        context.read<PhotoProvider>().reset();
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('登录成功！欢迎 ${response.user.username}')),
         );
-        context.go('/');
+        if (mounted) {
+          context.go('/');
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -169,13 +176,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     children: [
                       TextButton(
                         onPressed: _isLoading ? null : () {
-                          context.push('/register');
+                          if (mounted) {
+                            context.push('/register');
+                          }
                         },
                         child: const Text('注册账号'),
                       ),
                       TextButton(
                         onPressed: _isLoading ? null : () {
-                          context.push('/forgot-password');
+                          if (mounted) {
+                            context.push('/forgot-password');
+                          }
                         },
                         child: const Text('忘记密码'),
                       ),

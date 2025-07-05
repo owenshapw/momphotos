@@ -16,7 +16,7 @@ class BatchUploadScreen extends StatefulWidget {
 }
 
 class _BatchUploadScreenState extends State<BatchUploadScreen> {
-  final List<File> _selectedImages = [];
+  final List<XFile> _selectedImages = [];
   final List<String> _batchTags = [];
   final TextEditingController _batchDescriptionController = TextEditingController();
   bool _isUploading = false;
@@ -33,14 +33,14 @@ class _BatchUploadScreenState extends State<BatchUploadScreen> {
   Future<void> _pickImages() async {
     try {
       final List<XFile> images = await _picker.pickMultiImage(
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 85,
+        maxWidth: 3840, // 提高最大宽度到4K
+        maxHeight: 3840, // 提高最大高度到4K
+        imageQuality: 95, // 提高图片质量
       );
 
       if (images.isNotEmpty) {
         setState(() {
-          _selectedImages.addAll(images.map((xfile) => File(xfile.path)));
+          _selectedImages.addAll(images);
         });
       }
     } catch (e) {
@@ -113,7 +113,7 @@ class _BatchUploadScreenState extends State<BatchUploadScreen> {
   }
 
   // 从EXIF数据中提取拍摄年份
-  Future<int?> _extractYearFromExif(File imageFile) async {
+  Future<int?> _extractYearFromExif(XFile imageFile) async {
     try {
       final bytes = await imageFile.readAsBytes();
       final exifData = await readExifFromBytes(bytes);
@@ -343,12 +343,31 @@ class _BatchUploadScreenState extends State<BatchUploadScreen> {
                                 ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
-                                  child: Image.file(
-                                    _selectedImages[index],
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                  ),
+                                  child: kIsWeb
+                                      ? Image.network(
+                                          _selectedImages[index].path,
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
+                                          height: double.infinity,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Container(
+                                              color: Colors.grey[200],
+                                              child: const Center(
+                                                child: Icon(
+                                                  Icons.broken_image,
+                                                  color: Colors.grey,
+                                                  size: 24,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        )
+                                      : Image.file(
+                                          File(_selectedImages[index].path),
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
+                                          height: double.infinity,
+                                        ),
                                 ),
                               ),
                               Positioned(

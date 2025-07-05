@@ -19,7 +19,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // 数据已在启动画面中预加载，这里不需要重复加载
+    // 确保用户登录后能正确加载照片
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final photoProvider = context.read<PhotoProvider>();
+      if (AuthService.isLoggedIn && !photoProvider.hasLoaded) {
+        photoProvider.loadPhotos(forceRefresh: true);
+      }
+    });
   }
 
   Future<void> _deleteAccount() async {
@@ -32,7 +38,9 @@ class _HomeScreenState extends State<HomeScreen> {
         const SnackBar(content: Text('账户已注销')),
       );
       
-      context.go('/login');
+      if (mounted) {
+        context.go('/login');
+      }
     } catch (e) {
       if (!mounted) return;
       
@@ -82,9 +90,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
                 
                 if (confirmed == true) {
+                  final photoProvider = context.read<PhotoProvider>();
                   await AuthService.logout();
-                  if (!context.mounted) return;
-                  context.go('/login');
+                  if (!mounted) return;
+                  photoProvider.reset();
+                  if (mounted) {
+                    context.go('/login');
+                  }
                 }
               } else if (value == 'delete_account') {
                 final confirmed = await showDialog<bool>(
@@ -150,7 +162,9 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.upload_file),
             onPressed: () {
-              context.push('/batch-upload');
+              if (mounted) {
+                context.push('/batch-upload');
+              }
             },
             tooltip: '批量上传',
           ),
@@ -158,7 +172,9 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.add_photo_alternate),
             onPressed: () {
-              context.push('/upload');
+              if (mounted) {
+                context.push('/upload');
+              }
             },
             tooltip: '上传照片',
           ),
@@ -257,7 +273,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       photoProvider.clearError();
                                       // 延迟重试
                                       Future.delayed(const Duration(seconds: 2), () {
-                                        if (context.mounted) {
+                                        if (mounted) {
                                           photoProvider.loadPhotos();
                                         }
                                       });
@@ -284,22 +300,120 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Icon(
                                 photoProvider.searchQuery.isEmpty
-                                    ? Icons.photo_library_outlined
+                                    ? Icons.add_photo_alternate
                                     : Icons.search_off,
                                 size: 64,
-                                color: Colors.grey[400],
+                                color: photoProvider.searchQuery.isEmpty
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Colors.grey[400],
                               ),
                               const SizedBox(height: 16),
                               Text(
                                 photoProvider.searchQuery.isEmpty
-                                    ? '暂无照片'
+                                    ? '开始上传您的第一张照片'
                                     : '未找到相关照片',
                                 style: TextStyle(
                                   fontSize: 18,
-                                  color: Colors.grey[600],
+                                  color: photoProvider.searchQuery.isEmpty
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Colors.grey[600],
+                                  fontWeight: photoProvider.searchQuery.isEmpty
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                 ),
                               ),
-                              if (photoProvider.searchQuery.isNotEmpty) ...[
+                              if (photoProvider.searchQuery.isEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  '上传照片，记录美好时光',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    ElevatedButton.icon(
+                                      onPressed: () {
+                                        if (mounted) {
+                                          context.push('/upload');
+                                        }
+                                      },
+                                      icon: const Icon(Icons.add_photo_alternate),
+                                      label: const Text('上传单张'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Theme.of(context).colorScheme.primary,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    OutlinedButton.icon(
+                                      onPressed: () {
+                                        if (mounted) {
+                                          context.push('/batch-upload');
+                                        }
+                                      },
+                                      icon: const Icon(Icons.upload_file),
+                                      label: const Text('批量上传'),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Theme.of(context).colorScheme.primary,
+                                        side: BorderSide(color: Theme.of(context).colorScheme.primary),
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.lightbulb_outline,
+                                            size: 20,
+                                            color: Theme.of(context).colorScheme.primary,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            '上传提示',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: Theme.of(context).colorScheme.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '• 支持单张或批量上传照片\n'
+                                        '• 添加标签便于搜索和分类\n'
+                                        '• 设置拍摄年代记录时间\n'
+                                        '• 添加描述保存美好回忆',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[700],
+                                          height: 1.4,
+                                        ),
+                                        textAlign: TextAlign.left,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ] else ...[
                                 const SizedBox(height: 8),
                                 Text(
                                   '搜索关键词: "${photoProvider.searchQuery}"',

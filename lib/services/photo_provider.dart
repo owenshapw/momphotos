@@ -488,6 +488,12 @@ class PhotoProvider with ChangeNotifier {
     developer.log('🔄 PhotoProvider状态已重置');
   }
 
+  // 清除图片缓存
+  void clearImageCache() {
+    // 通知PhotoGrid重新加载图片
+    notifyListeners();
+  }
+
   // 添加搜索历史
   void _addToSearchHistory(String query) {
     if (query.trim().isNotEmpty) {

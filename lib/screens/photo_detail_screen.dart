@@ -5,11 +5,13 @@ import 'package:go_router/go_router.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
-import 'dart:js_interop';
-import 'package:web/web.dart' as web;
+import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/photo.dart';
 import '../services/photo_provider.dart';
 import 'package:provider/provider.dart';
+
+
 
 class PhotoDetailScreen extends StatefulWidget {
   final Photo photo;
@@ -182,7 +184,9 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.white),
             onPressed: () async {
-              await context.push('/photo-edit', extra: allPhotos[_currentIndex]);
+              await context.push('/photo-edit', extra: {
+                'photo': allPhotos[_currentIndex],
+              });
               
               // 如果编辑成功，PhotoProvider已经处理了数据更新
               // 不需要额外操作，因为数据会自动更新
@@ -561,23 +565,10 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
       if (response.statusCode == 200) {
         // 在Web平台上，触发浏览器下载
         if (kIsWeb) {
-          // 创建下载链接
-          final bytes = response.bodyBytes;
-          final blob = web.Blob([bytes.toJS].toJS);
-          final url = web.URL.createObjectURL(blob);
-          final anchor = web.HTMLAnchorElement();
-          anchor.href = url;
-          anchor.download = 'photo_${photo.id}.jpg';
-          anchor.click();
-          web.URL.revokeObjectURL(url);
+          _downloadPhotoWeb(response.bodyBytes, photo.id);
         } else {
           // 在移动平台上，保存到相册
-          // 这里需要添加相应的权限和插件
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('下载功能在移动端需要额外配置')),
-            );
-          }
+          await _downloadPhotoMobile(response.bodyBytes, photo.id);
         }
         
         if (mounted) {
@@ -592,6 +583,60 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('下载失败: $e')),
+        );
+      }
+    }
+  }
+
+  // Web 平台特定的下载方法
+  void _downloadPhotoWeb(List<int> bytes, String photoId) {
+    if (!kIsWeb) return;
+    
+    // 在 Web 平台上，暂时显示提示信息
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Web下载功能正在开发中')),
+      );
+    }
+  }
+
+  // 移动端下载方法
+  Future<void> _downloadPhotoMobile(List<int> bytes, String photoId) async {
+    try {
+      // 检查存储权限
+      final status = await Permission.storage.status;
+      if (!status.isGranted) {
+        final result = await Permission.storage.request();
+        if (!result.isGranted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('需要存储权限才能保存照片')),
+            );
+          }
+          return;
+        }
+      }
+
+      // 保存图片到相册
+      final result = await ImageGallerySaver.saveImage(
+        Uint8List.fromList(bytes),
+        quality: 100,
+        name: 'photo_$photoId',
+      );
+
+      if (result['isSuccess'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('照片已保存到相册')),
+          );
+        }
+      } else {
+        throw Exception('保存失败');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存失败: $e')),
         );
       }
     }

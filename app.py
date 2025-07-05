@@ -150,6 +150,8 @@ def login_user():
     username = data.get('username')
     password = data.get('password')
     
+    print(f"🔐 用户登录尝试 - 用户名: {username}")
+    
     if not all([username, password]):
         return jsonify({'error': '用户名和密码不能为空'}), 400
     
@@ -158,6 +160,8 @@ def login_user():
         
         if user_response.data:
             user = user_response.data[0]
+            print(f"👤 找到用户 - ID: {user['id']} (类型: {type(user['id'])})")
+            
             if check_password_hash(user.get('password', ''), password):
                 token = generate_token(user['id'], user['username'])
                 
@@ -165,6 +169,8 @@ def login_user():
                     supabase.table('users').update({'last_login_at': datetime.now().isoformat()}).eq('id', user['id']).execute()
                 except Exception:
                     pass
+                
+                print(f"✅ 登录成功 - 用户ID: {user['id']}")
                 
                 return jsonify({
                     'message': '登录成功',
@@ -177,10 +183,13 @@ def login_user():
                     },
                     'token': token
                 })
+            else:
+                print(f"❌ 密码验证失败 - 用户: {username}")
         
         return jsonify({'error': '用户名或密码错误'}), 401
             
     except Exception as e:
+        print(f"❌ 登录异常: {str(e)}")
         return jsonify({'error': f'服务器内部错误: {str(e)}'}), 500
 
 @app.route('/auth/forgot-password', methods=['POST'])
@@ -439,10 +448,27 @@ def get_photos():
     if not payload:
         return jsonify({'error': 'token无效或已过期'}), 401
     user_id = payload['user_id']
+    
+    # 添加调试信息
+    print(f"🔍 获取照片 - 用户ID: {user_id} (类型: {type(user_id)})")
+    
     try:
+        # 先检查用户是否存在
+        user_response = supabase.table('users').select('id, username').eq('id', user_id).execute()
+        print(f"👤 用户查询结果: {user_response.data}")
+        
+        # 查询照片
         response = supabase.table('photos').select('*').eq('user_id', user_id).execute()
+        print(f"📸 照片查询结果: 找到 {len(response.data)} 张照片")
+        
+        # 如果没有照片，检查数据库中是否有其他用户的照片
+        if not response.data:
+            all_photos = supabase.table('photos').select('user_id, count').execute()
+            print(f"📊 数据库中所有照片统计: {all_photos.data}")
+        
         return jsonify(response.data)
     except Exception as e:
+        print(f"❌ 获取照片失败: {str(e)}")
         return jsonify({'error': f'获取照片失败: {str(e)}'}), 500
 
 @app.route('/auth/validate', methods=['GET'])

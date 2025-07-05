@@ -15,7 +15,7 @@ class PhotoGrid extends StatefulWidget {
 class PhotoGridState extends State<PhotoGrid> {
   final List<Photo> _allPhotos = []; // 按时间顺序的所有照片
   final List<Photo> _loadedPhotos = []; // 已加载的照片
-  final int _batchSize = 8; // 减少批量大小，提高初始加载速度
+  int _batchSize = 6; // 初始批量大小，根据屏幕高度调整
   bool _isLoading = false;
   bool _hasMorePhotos = true;
   late final ScrollController _scrollController;
@@ -25,7 +25,33 @@ class PhotoGridState extends State<PhotoGrid> {
     super.initState();
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
-    _initializePhotos();
+    
+    // 延迟初始化，确保能获取到屏幕尺寸
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _calculateBatchSize();
+      _initializePhotos();
+    });
+  }
+
+  // 根据屏幕高度计算批量大小
+  void _calculateBatchSize() {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final appBarHeight = 56.0; // AppBar 高度
+    final searchBarHeight = 80.0; // 搜索栏高度
+    final statsHeight = 60.0; // 统计信息高度
+    final padding = 32.0; // 上下边距
+    
+    final availableHeight = screenHeight - appBarHeight - searchBarHeight - statsHeight - padding;
+    final itemHeight = 200.0; // 每个照片项的高度（包含间距）
+    final crossAxisCount = 2; // 每行2列
+    
+    // 计算一屏能显示多少行
+    final rowsPerScreen = (availableHeight / itemHeight).floor();
+    // 计算一屏能显示多少张照片
+    final photosPerScreen = rowsPerScreen * crossAxisCount;
+    
+    // 设置批量大小为屏幕能显示的照片数量，但不少于4张
+    _batchSize = photosPerScreen.clamp(4, 8);
   }
 
   @override
@@ -109,18 +135,14 @@ class PhotoGridState extends State<PhotoGrid> {
       _isLoading = true;
     });
     
-    // 减少延迟时间，提高响应速度
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (!mounted) return;
-      
-      final currentCount = _loadedPhotos.length;
-      final remainingPhotos = _allPhotos.skip(currentCount).take(_batchSize).toList();
-      
-      setState(() {
-        _loadedPhotos.addAll(remainingPhotos);
-        _isLoading = false;
-        _hasMorePhotos = _loadedPhotos.length < _allPhotos.length;
-      });
+    // 立即加载更多照片，减少延迟
+    final currentCount = _loadedPhotos.length;
+    final remainingPhotos = _allPhotos.skip(currentCount).take(_batchSize).toList();
+    
+    setState(() {
+      _loadedPhotos.addAll(remainingPhotos);
+      _isLoading = false;
+      _hasMorePhotos = _loadedPhotos.length < _allPhotos.length;
     });
   }
 
@@ -209,18 +231,9 @@ class PhotoGridState extends State<PhotoGrid> {
             itemCount: _loadedPhotos.length + (_hasMorePhotos ? 1 : 0),
             itemBuilder: (context, index) {
               if (index == _loadedPhotos.length) {
-                // 加载更多指示器 - 使用空白色块
+                // 加载更多指示器 - 使用浅色空白底色
                 return Container(
-                  color: Colors.grey[100],
-                  child: const Center(
-                    child: Text(
-                      '加载中...',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
+                  color: Colors.grey[50],
                 );
               }
               
@@ -248,10 +261,12 @@ class PhotoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        context.push('/photo-detail', extra: {
-          'photo': photo,
-          'photos': allPhotos,
-        });
+        if (context.mounted) {
+          context.push('/photo-detail', extra: {
+            'photo': photo,
+            'photos': allPhotos,
+          });
+        }
       },
       child: Container(
         decoration: BoxDecoration(
@@ -267,20 +282,83 @@ class PhotoCard extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: CachedNetworkImage(
-                imageUrl: photo.thumbnailUrl ?? photo.url,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-              color: Colors.grey[100],
-                ),
-                errorWidget: (context, url, error) => Container(
-                  color: Colors.grey[200],
-              child: const Center(
-                child: Icon(
-                  Icons.error_outline,
-                    color: Colors.grey,
+            imageUrl: photo.thumbnailUrl ?? photo.url,
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(
+              color: Colors.grey[50],
+            ),
+            errorWidget: (context, url, error) {
+              // 记录错误信息到控制台
+              debugPrint('❌ 图片加载失败: $url');
+              debugPrint('   错误: $error');
+              debugPrint('   照片ID: ${photo.id}');
+              debugPrint('   缩略图URL: ${photo.thumbnailUrl}');
+              debugPrint('   原图URL: ${photo.url}');
+              
+              // 如果缩略图加载失败，尝试使用原图
+              if (url == photo.thumbnailUrl && photo.thumbnailUrl != photo.url) {
+                debugPrint('🔄 尝试使用原图作为缩略图');
+                return CachedNetworkImage(
+                  imageUrl: photo.url,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: Colors.grey[50],
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: Colors.grey[200],
+                    child: const Center(
+                      child: Icon(
+                        Icons.broken_image,
+                        color: Colors.grey,
+                        size: 24,
+                      ),
                     ),
                   ),
+                  httpHeaders: const {
+                    'User-Agent': 'Mozilla/5.0 (compatible; Flutter Web)',
+                  },
+                  cacheKey: '${photo.id}_original',
+                );
+              }
+              
+              return Container(
+                color: Colors.grey[200],
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.broken_image,
+                        color: Colors.grey,
+                        size: 32,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '加载失败',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '点击重试',
+                        style: TextStyle(
+                          fontSize: 8,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              );
+            },
+            // 添加重试机制
+            httpHeaders: const {
+              'User-Agent': 'Mozilla/5.0 (compatible; Flutter Web)',
+            },
+            // 设置缓存策略，使用固定的缓存键但添加版本号
+            cacheKey: '${photo.id}_v2',
           ),
         ),
       ),
