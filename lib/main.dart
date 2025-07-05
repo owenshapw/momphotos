@@ -7,9 +7,15 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'services/photo_provider.dart';
 import 'services/auth_service.dart';
 import 'screens/login_screen.dart';
-import 'screens/splash_screen.dart';
 import 'screens/reset_password_screen.dart';
 import 'screens/forgot_password_screen.dart';
+import 'screens/register_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/upload_screen.dart';
+import 'screens/batch_upload_screen.dart';
+import 'screens/photo_detail_screen.dart';
+import 'screens/photo_edit_screen.dart';
+import 'models/photo.dart';
 import 'utils/debug_helper.dart';
 import 'dart:developer' as developer;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -20,11 +26,15 @@ final _router = GoRouter(
   routes: [
     GoRoute(
       path: '/',
-      builder: (context, state) => AuthService.isLoggedIn ? const SplashScreen() : const LoginScreen(),
+      builder: (context, state) => AuthService.isLoggedIn ? const HomeScreen() : const LoginScreen(),
     ),
     GoRoute(
       path: '/login',
       builder: (context, state) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: '/register',
+      builder: (context, state) => const RegisterScreen(),
     ),
     GoRoute(
       path: '/reset-password',
@@ -38,18 +48,58 @@ final _router = GoRouter(
       path: '/forgot-password',
       builder: (context, state) => const ForgotPasswordScreen(),
     ),
+    GoRoute(
+      path: '/home',
+      builder: (context, state) => const HomeScreen(),
+    ),
+    GoRoute(
+      path: '/upload',
+      builder: (context, state) => const UploadScreen(),
+    ),
+    GoRoute(
+      path: '/batch-upload',
+      builder: (context, state) => const BatchUploadScreen(),
+    ),
+    GoRoute(
+      path: '/photo-detail',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        final photo = extra?['photo'] as Photo?;
+        final photos = extra?['photos'] as List<Photo>?;
+        if (photo != null && photos != null) {
+          return PhotoDetailScreen(photo: photo, photos: photos);
+        }
+        return const LoginScreen(); // 回退到登录页
+      },
+    ),
+    GoRoute(
+      path: '/photo-edit',
+      builder: (context, state) {
+        final photo = state.extra as Photo?;
+        if (photo != null) {
+          return PhotoEditScreen(photo: photo);
+        }
+        return const LoginScreen(); // 回退到登录页
+      },
+    ),
   ],
   redirect: (context, state) {
     // 简单的重定向逻辑，可以根据需要扩展
     final loggedIn = AuthService.isLoggedIn;
-    final loggingIn = state.matchedLocation == '/login' || state.matchedLocation == '/reset-password' || state.matchedLocation == '/forgot-password';
+    final publicRoutes = [
+      '/login',
+      '/register', 
+      '/reset-password', 
+      '/forgot-password'
+    ];
+    final isPublicRoute = publicRoutes.contains(state.matchedLocation);
 
-    // 如果用户未登录，且访问的不是登录、重置密码或忘记密码页，则重定向到登录页
-    if (!loggedIn && !loggingIn) {
+    // 如果用户未登录，且访问的不是公开路由，则重定向到登录页
+    if (!loggedIn && !isPublicRoute) {
       return '/login';
     }
-    // 如果用户已登录，但尝试访问登录页，则重定向到主页
-    if (loggedIn && loggingIn) {
+    // 如果用户已登录，但尝试访问登录或注册页，则重定向到主页
+    if (loggedIn && (state.matchedLocation == '/login' || state.matchedLocation == '/register')) {
       return '/';
     }
     

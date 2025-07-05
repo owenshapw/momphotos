@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:dropdown_search/dropdown_search.dart';
@@ -88,20 +89,20 @@ class _BatchUploadScreenState extends State<BatchUploadScreen> {
           onSubmitted: (value) {
             if (value.trim().isNotEmpty) {
               _addTag(value.trim());
-              Navigator.pop(context);
+              Navigator.of(context).pop();
             }
           },
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.of(context).pop(),
             child: const Text('取消'),
           ),
           ElevatedButton(
             onPressed: () {
               if (tagController.text.trim().isNotEmpty) {
                 _addTag(tagController.text.trim());
-                Navigator.pop(context);
+                Navigator.of(context).pop();
               }
             },
             child: const Text('添加'),
@@ -207,7 +208,7 @@ class _BatchUploadScreenState extends State<BatchUploadScreen> {
         });
         
         // 返回上一页
-        Navigator.pop(context);
+        context.pop();
       }
     } catch (e) {
       if (mounted) {

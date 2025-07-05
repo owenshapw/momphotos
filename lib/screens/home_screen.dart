@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../services/photo_provider.dart';
 import '../services/auth_service.dart';
 import '../widgets/photo_grid.dart';
 import '../widgets/search_bar.dart';
-import 'upload_screen.dart';
-import 'batch_upload_screen.dart';
-import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -66,10 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (confirmed == true) {
                   await AuthService.logout();
                   if (!context.mounted) return;
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
-                  );
+                  context.go('/login');
                 }
               }
             },
@@ -99,12 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.upload_file),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const BatchUploadScreen(),
-                ),
-              );
+              context.push('/batch-upload');
             },
             tooltip: '批量上传',
           ),
@@ -112,12 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.add_photo_alternate),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const UploadScreen(),
-                ),
-              );
+              context.push('/upload');
             },
             tooltip: '上传照片',
           ),

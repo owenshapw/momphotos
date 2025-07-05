@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'dart:convert';
 
@@ -66,7 +67,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           icon: const Icon(Icons.close),
           onPressed: () {
             // 返回登录页
-            Navigator.of(context).pushReplacementNamed('/login');
+            context.go('/login');
           },
         ),
       ),
@@ -93,7 +94,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     const SizedBox(height: 24),
                     ElevatedButton(
                       onPressed: () {
-                        Navigator.of(context).pushReplacementNamed('/forgot-password');
+                        context.go('/forgot-password');
                       },
                       child: const Text('重新申请密码重置'),
                     ),

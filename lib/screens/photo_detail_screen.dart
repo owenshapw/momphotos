@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/photo.dart';
-import '../screens/photo_edit_screen.dart';
 
 class PhotoDetailScreen extends StatefulWidget {
   final Photo photo;
@@ -129,7 +129,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => context.pop(),
           ),
         ),
         body: const Center(
@@ -148,7 +148,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.pop(),
         ),
         title: Text(
           '${_currentIndex + 1} / ${allPhotos.length}',
@@ -163,12 +163,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.white),
             onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PhotoEditScreen(photo: allPhotos[_currentIndex]),
-                ),
-              );
+              await context.push('/photo-edit', extra: allPhotos[_currentIndex]);
               
               // 如果编辑成功，PhotoProvider已经处理了数据更新
               // 不需要额外操作，因为数据会自动更新

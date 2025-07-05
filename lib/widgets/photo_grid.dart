@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/photo.dart';
-import '../screens/photo_detail_screen.dart';
 // import 'package:http/http.dart' as http; // 已移除未使用
 
 class PhotoGrid extends StatefulWidget {
@@ -248,15 +248,10 @@ class PhotoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PhotoDetailScreen(
-              photo: photo,
-              photos: allPhotos,
-            ),
-          ),
-        );
+        context.push('/photo-detail', extra: {
+          'photo': photo,
+          'photos': allPhotos,
+        });
       },
       child: Container(
         decoration: BoxDecoration(

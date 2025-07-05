@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'splash_screen.dart';
-import 'register_screen.dart';
-import 'forgot_password_screen.dart'; // Import the new screen
+import 'package:go_router/go_router.dart';
+
 import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -46,9 +45,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('登录成功！欢迎 ${response.user.username}')),
         );
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const SplashScreen()),
-        );
+        context.go('/');
       }
     } catch (e) {
       if (mounted) {
@@ -172,17 +169,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     children: [
                       TextButton(
                         onPressed: _isLoading ? null : () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                          );
+                          context.push('/register');
                         },
                         child: const Text('注册账号'),
                       ),
                       TextButton(
                         onPressed: _isLoading ? null : () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
-                          );
+                          context.push('/forgot-password');
                         },
                         child: const Text('忘记密码'),
                       ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:dropdown_search/dropdown_search.dart';
@@ -100,7 +101,7 @@ class _UploadScreenState extends State<UploadScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('照片上传成功！')),
         );
-        Navigator.pop(context);
+        context.pop();
       }
     } catch (e) {
       if (mounted) {

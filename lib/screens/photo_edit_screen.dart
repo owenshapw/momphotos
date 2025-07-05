@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import '../models/photo.dart';
@@ -78,16 +79,7 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
           const SnackBar(content: Text('保存成功！')),
         );
         
-        // 返回编辑后的数据
-        final editedData = {
-          'tags': _tags,
-          'year': _selectedYear,
-          'description': _descriptionController.text.trim().isEmpty
-              ? null
-              : _descriptionController.text.trim(),
-        };
-        
-        Navigator.pop(context, editedData);
+        context.pop();
       }
     } catch (e) {
       if (mounted) {
@@ -422,20 +414,20 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
           onSubmitted: (value) {
             if (value.trim().isNotEmpty) {
               _addTag(value.trim());
-              Navigator.pop(context);
+              Navigator.of(context).pop();
             }
           },
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.of(context).pop(),
             child: const Text('取消'),
           ),
           ElevatedButton(
             onPressed: () {
               if (tagController.text.trim().isNotEmpty) {
                 _addTag(tagController.text.trim());
-                Navigator.pop(context);
+                Navigator.of(context).pop();
               }
             },
             child: const Text('添加'),

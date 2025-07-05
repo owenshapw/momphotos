@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -73,7 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('注册成功！欢迎 ${response.user.username}')),
         );
-        Navigator.of(context).pop(); // 返回登录界面
+        context.go('/login'); // 返回登录界面
       }
     } catch (e) {
       if (mounted) {
@@ -95,7 +96,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => context.pop(),
         ),
         title: const Text(
           '注册账号',
@@ -245,7 +246,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                   
                   // 返回登录链接
                   TextButton(
-                    onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                                            onPressed: _isLoading ? null : () => context.pop(),
                     child: const Text(
                       '已有账号？返回登录',
                       style: TextStyle(fontSize: 16),
