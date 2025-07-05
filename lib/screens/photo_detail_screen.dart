@@ -195,9 +195,9 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
           }
         },
         child: Column(
-          children: [
-            // 照片查看区域
-            Expanded(
+        children: [
+          // 照片查看区域
+          Expanded(
               child: Stack(
                 children: [
                   PageView.builder(
@@ -218,17 +218,17 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                       final photo = allPhotos[index];
                       return Hero(
                         tag: photo.id,
-                        child: PhotoView(
+            child: PhotoView(
                           key: ValueKey(photo.id),
                           imageProvider: CachedNetworkImageProvider(
                             photo.url,
                             cacheKey: photo.id,
                           ),
-                          minScale: PhotoViewComputedScale.contained,
-                          maxScale: PhotoViewComputedScale.covered * 2,
-                          backgroundDecoration: const BoxDecoration(
-                            color: Colors.black,
-                          ),
+              minScale: PhotoViewComputedScale.contained,
+              maxScale: PhotoViewComputedScale.covered * 2,
+              backgroundDecoration: const BoxDecoration(
+                color: Colors.black,
+              ),
                           loadingBuilder: (context, event) => _buildLoadingIndicator(event),
                           errorBuilder: (context, error, stackTrace) => _buildErrorIndicator(),
                         ),
@@ -291,22 +291,22 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                       ),
                   ],
                 ],
+            ),
+          ),
+          
+          // 照片信息区域
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
               ),
             ),
-            
-            // 照片信息区域
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                   // 页面指示器
                   if (allPhotos.length > 1) ...[
                     Center(
@@ -327,7 +327,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                             const SizedBox(width: 4),
                             Text(
                               '${_currentIndex + 1} / ${allPhotos.length}',
-                              style: TextStyle(
+                    style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey[600],
                                 fontWeight: FontWeight.w500,
@@ -417,14 +417,14 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
           // 加载文字
           Text(
             '正在加载照片...',
-            style: TextStyle(
+                          style: TextStyle(
               color: Colors.white.withValues(alpha: 0.8),
               fontSize: 14,
-            ),
+                          ),
           ),
         ],
-      ),
-    );
+                        ),
+                      );
   }
 
   Widget _buildErrorIndicator() {
@@ -436,8 +436,8 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
             Icons.error_outline,
             color: Colors.white,
             size: 48,
-          ),
-          const SizedBox(height: 16),
+                  ),
+                  const SizedBox(height: 16),
           const Text(
             '加载失败',
             style: TextStyle(
@@ -463,75 +463,75 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 年代信息
-        if (photo.year != null) ...[
-          Row(
-            children: [
-              Icon(
-                Icons.calendar_today,
-                size: 16,
-                color: Colors.grey[600],
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '拍摄年代: ${photo.year}年',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-        ],
-        
-        // 描述信息
-        if (photo.description != null && photo.description!.isNotEmpty) ...[
-          Row(
-            children: [
-              Icon(
-                Icons.description,
-                size: 16,
-                color: Colors.grey[600],
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  photo.description!,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
+                // 年代信息
+                if (photo.year != null) ...[
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '拍摄年代: ${photo.year}年',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 8),
+                ],
+                
+                // 描述信息
+                if (photo.description != null && photo.description!.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.description,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          photo.description!,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                
+                // 上传时间
+                Row(
+                  children: [
+                    Icon(
+                      Icons.access_time,
+                      size: 16,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '上传时间: ${_formatDate(photo.createdAt)}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-        ],
-        
-        // 上传时间
-        Row(
-          children: [
-            Icon(
-              Icons.access_time,
-              size: 16,
-              color: Colors.grey[600],
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '上传时间: ${_formatDate(photo.createdAt)}',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
-      ],
+              ],
     );
   }
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
-}
+} 

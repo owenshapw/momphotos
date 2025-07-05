@@ -78,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 value: 'user_info',
                 enabled: false,
                 child: Text(
-                  '当前用户: ${AuthService.currentUser?.phone ?? '未知'}',
+                  '当前用户: ${AuthService.currentUser?.username ?? '未知'}',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),

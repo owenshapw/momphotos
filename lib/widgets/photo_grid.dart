@@ -166,21 +166,21 @@ class PhotoGridState extends State<PhotoGrid> {
     return Column(
       children: [
         // 照片统计信息
-        Padding(
+            Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
+              child: Row(
+                children: [
               Icon(
                 Icons.photo_library,
                 size: 20,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
+                      color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
                 '已加载 ${_loadedPhotos.length} / ${_allPhotos.length} 张照片',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -190,12 +190,12 @@ class PhotoGridState extends State<PhotoGrid> {
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-            ],
-          ),
-        ),
-        
-        // 照片网格
+                  ),
+                ],
+              ),
+            ),
+            
+            // 照片网格
         Expanded(
           child: GridView.builder(
             controller: _scrollController,
@@ -226,8 +226,8 @@ class PhotoGridState extends State<PhotoGrid> {
               
               final photo = _loadedPhotos[index];
               return PhotoCard(photo: photo, allPhotos: _allPhotos);
-            },
-          ),
+              },
+            ),
         ),
       ],
     );
@@ -272,20 +272,20 @@ class PhotoCard extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: CachedNetworkImage(
-            imageUrl: photo.thumbnailUrl ?? photo.url,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(
+                imageUrl: photo.thumbnailUrl ?? photo.url,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
               color: Colors.grey[100],
-            ),
-            errorWidget: (context, url, error) => Container(
-              color: Colors.grey[200],
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: Colors.grey[200],
               child: const Center(
                 child: Icon(
                   Icons.error_outline,
-                  color: Colors.grey,
+                    color: Colors.grey,
+                    ),
+                  ),
                 ),
-              ),
-            ),
           ),
         ),
       ),

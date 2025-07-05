@@ -63,62 +63,62 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
         return Column(
           children: [
             Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                decoration: InputDecoration(
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: TextField(
+            controller: _controller,
+            focusNode: _focusNode,
+            decoration: InputDecoration(
                   hintText: '搜索人物名、年代、简介...',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _controller.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _controller.clear();
-                            photoProvider.clearSearch();
-                            _focusNode.unfocus();
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _controller.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _controller.clear();
+                        photoProvider.clearSearch();
+                        _focusNode.unfocus();
                             setState(() {
                               _showSuggestions = false;
                             });
-                          },
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-                onChanged: (value) {
+                      },
+                    )
+                  : null,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+            ),
+            onChanged: (value) {
                   setState(() {
                     _showSuggestions = value.isNotEmpty && _focusNode.hasFocus;
                   });
                   
-                  if (value.isEmpty) {
-                    photoProvider.clearSearch();
-                  } else {
-                    photoProvider.searchPhotos(value);
-                  }
-                },
+              if (value.isEmpty) {
+                photoProvider.clearSearch();
+              } else {
+                photoProvider.searchPhotos(value);
+              }
+            },
                 onTap: () {
                   setState(() {
                     _showSuggestions = _controller.text.isNotEmpty;
                   });
                 },
-                onSubmitted: (value) {
-                  if (value.isNotEmpty) {
-                    photoProvider.searchPhotos(value);
-                  }
-                  _focusNode.unfocus();
+            onSubmitted: (value) {
+              if (value.isNotEmpty) {
+                photoProvider.searchPhotos(value);
+              }
+              _focusNode.unfocus();
                   setState(() {
                     _showSuggestions = false;
                   });
-                },
-              ),
+            },
+          ),
             ),
             
             // 搜索建议

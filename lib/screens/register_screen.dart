@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -10,7 +9,8 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProviderStateMixin {
-  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   
@@ -22,7 +22,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -30,23 +31,29 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
 
   void _register() async {
     // 验证输入
-    if (_phoneController.text.trim().isEmpty) {
-      setState(() => _error = '请输入手机号');
+    if (_usernameController.text.trim().isEmpty) {
+      setState(() => _error = '请输入用户名');
       return;
     }
-    
+    if (_emailController.text.trim().isEmpty) {
+      setState(() => _error = '请输入邮箱地址');
+      return;
+    }
+    // Basic email validation
+    if (!_emailController.text.contains('@') || !_emailController.text.contains('.')) {
+      setState(() => _error = '请输入有效的邮箱地址');
+      return;
+    }
     if (_passwordController.text.isEmpty) {
       setState(() => _error = '请输入密码');
       return;
     }
-    
     if (_passwordController.text.length < 6) {
-      setState(() => _error = '密码至少6位');
+      setState(() => _error = '密码至少需要6位');
       return;
     }
-    
     if (_passwordController.text != _confirmPasswordController.text) {
-      setState(() => _error = '两次密码不一致');
+      setState(() => _error = '两次输入的密码不一致');
       return;
     }
 
@@ -57,13 +64,14 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
 
     try {
       final response = await AuthService.register(
-        phone: _phoneController.text.trim(),
+        username: _usernameController.text.trim(),
+        email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('注册成功！欢迎 ${response.user.phone}')),
+          SnackBar(content: Text('注册成功！欢迎 ${response.user.username}')),
         );
         Navigator.of(context).pop(); // 返回登录界面
       }
@@ -111,19 +119,29 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                   ),
                   const SizedBox(height: 24),
                   
-                  // 手机号输入
+                  // 用户名输入
                   TextField(
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(11),
-                    ],
+                    controller: _usernameController,
+                    keyboardType: TextInputType.text,
                     decoration: const InputDecoration(
-                      labelText: '手机号',
-                      hintText: '请输入11位手机号',
+                      labelText: '用户名',
+                      hintText: '设置您的登录名',
                       border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.phone),
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                    enabled: !_isLoading,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 邮箱输入
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: '邮箱',
+                      hintText: '用于密码找回和验证',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.email_outlined),
                     ),
                     enabled: !_isLoading,
                   ),
@@ -137,7 +155,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                       labelText: '密码',
                       hintText: '请输入密码（至少6位）',
                       border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.lock),
+                      prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
                         onPressed: () => setState(() => _obscurePassword = !_obscurePassword),

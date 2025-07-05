@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'splash_screen.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart'; // Import the new screen
 import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -12,7 +12,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
-  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _obscure = true;
   String? _error;
@@ -21,8 +21,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   void _login() async {
     // 验证输入
-    if (_phoneController.text.trim().isEmpty) {
-      setState(() => _error = '请输入手机号');
+    if (_usernameController.text.trim().isEmpty) {
+      setState(() => _error = '请输入用户名');
       return;
     }
     
@@ -38,13 +38,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     try {
       final response = await AuthService.login(
-        phone: _phoneController.text.trim(),
+        username: _usernameController.text.trim(),
         password: _passwordController.text,
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('登录成功！欢迎 ${response.user.phone}')),
+          SnackBar(content: Text('登录成功！欢迎 ${response.user.username}')),
         );
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const SplashScreen()),
@@ -82,17 +82,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   ),
                   const SizedBox(height: 24),
                   TextField(
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(11),
-                    ],
+                    controller: _usernameController,
+                    keyboardType: TextInputType.text,
                     decoration: const InputDecoration(
-                      labelText: '手机号',
-                      hintText: '请输入11位手机号',
+                      labelText: '用户名',
+                      hintText: '请输入您的用户名',
                       border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.phone),
+                      prefixIcon: Icon(Icons.person_outline),
                     ),
                     enabled: !_isLoading,
                   ),
@@ -104,6 +100,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       labelText: '密码',
                       hintText: '请输入密码',
                       border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
                         onPressed: () => setState(() => _obscure = !_obscure),
@@ -183,24 +180,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       ),
                       TextButton(
                         onPressed: _isLoading ? null : () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('忘记密码'),
-                              content: const Text(
-                                '请联系管理员重置密码。\n\n'
-                                '管理员可以在Supabase控制台中手动修改您的密码。',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: const Text('知道了'),
-                                ),
-                              ],
-                            ),
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
                           );
                         },
-                        child: const Text('忘记密码'),
+                        child: const Text('��记密码'),
                       ),
                     ],
                   ),

@@ -33,7 +33,7 @@ class AuthService {
         _currentToken = token;
         _lastUserId = _currentUser!.id; // 设置最后登录的用户ID
         ApiService.setAuthToken(token);
-        developer.log('🔐 自动登录用户: ${_currentUser!.phone} (ID: ${_currentUser!.id})');
+        developer.log('🔐 自动登录用户: ${_currentUser!.username} (ID: ${_currentUser!.id})');
       } else {
         developer.log('🔐 没有找到已保存的登录信息');
       }
@@ -58,11 +58,13 @@ class AuthService {
 
   // 用户注册
   static Future<AuthResponse> register({
-    required String phone,
+    required String username,
+    required String email,
     required String password,
   }) async {
     final response = await ApiService.register(
-      phone: phone,
+      username: username,
+      email: email,
       password: password,
     );
     // 保存用户信息
@@ -72,11 +74,11 @@ class AuthService {
 
   // 用户登录
   static Future<AuthResponse> login({
-    required String phone,
+    required String username,
     required String password,
   }) async {
     final response = await ApiService.login(
-      phone: phone,
+      username: username,
       password: password,
     );
     
@@ -94,7 +96,7 @@ class AuthService {
     // 如果是不同用户登录，清除缓存
     if (isDifferentUser) {
       ApiService.clearCache();
-      developer.log('🔄 用户切换，已清除缓存');
+      developer.log('🔄 用户切换，已清除��存');
     } else {
       developer.log('✅ 同一用户，保持缓存');
     }
@@ -105,7 +107,7 @@ class AuthService {
   // 用户登出
   static Future<void> logout() async {
     developer.log('🚪 用户登出，清除所有状态');
-    developer.log('  当前用户: ${_currentUser?.phone} (ID: ${_currentUser?.id})');
+    developer.log('  当前用户: ${_currentUser?.username} (ID: ${_currentUser?.id})');
     
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_userKey);
@@ -130,6 +132,11 @@ class AuthService {
       await logout();
     }
     return isValid;
+  }
+
+  // 忘记密码
+  static Future<String> forgotPassword({required String email}) async {
+    return await ApiService.forgotPassword(email: email);
   }
 
   // 更新用户信息

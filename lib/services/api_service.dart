@@ -176,7 +176,8 @@ class ApiService {
 
   // 用户注册
   static Future<AuthResponse> register({
-    required String phone,
+    required String username,
+    required String email,
     required String password,
   }) async {
     try {
@@ -184,12 +185,13 @@ class ApiService {
         Uri.parse('$baseUrl/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'phone': phone,
+          'username': username,
+          'email': email,
           'password': password,
         }),
       ).timeout(timeout);
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 201) { // Updated to check for 201 Created
         final data = json.decode(response.body);
         final authResponse = AuthResponse.fromJson(data);
         // 保存token
@@ -210,7 +212,7 @@ class ApiService {
 
   // 用户登录
   static Future<AuthResponse> login({
-    required String phone,
+    required String username,
     required String password,
   }) async {
     try {
@@ -218,7 +220,7 @@ class ApiService {
         Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'phone': phone,
+          'username': username,
           'password': password,
         }),
       ).timeout(timeout);
@@ -255,6 +257,30 @@ class ApiService {
       return response.statusCode == 200;
     } catch (e) {
       return false;
+    }
+  }
+
+  // 忘记密码
+  static Future<String> forgotPassword({required String email}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/forgot-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email}),
+      ).timeout(timeout);
+
+      final data = json.decode(response.body);
+      if (response.statusCode == 200) {
+        return data['message'];
+      } else {
+        throw Exception(data['error'] ?? '请求失败');
+      }
+    } on TimeoutException {
+      throw Exception('请求超时，请检查网络连接');
+    } on SocketException {
+      throw Exception('网络连接失败，请检查网络设置');
+    } catch (e) {
+      throw Exception('请求错误: $e');
     }
   }
 

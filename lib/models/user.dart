@@ -1,12 +1,14 @@
 class User {
   final String id;
-  final String phone;
+  final String username;
+  final String email;
   final DateTime createdAt;
   final DateTime? lastLoginAt;
 
   User({
     required this.id,
-    required this.phone,
+    required this.username,
+    required this.email,
     required this.createdAt,
     this.lastLoginAt,
   });
@@ -14,10 +16,11 @@ class User {
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'],
-      phone: json['phone'],
+      username: json['username'],
+      email: json['email'] ?? '', // Handle cases where email might be null
       createdAt: DateTime.parse(json['created_at']),
-      lastLoginAt: json['last_login_at'] != null 
-          ? DateTime.parse(json['last_login_at']) 
+      lastLoginAt: json['last_login_at'] != null
+          ? DateTime.parse(json['last_login_at'])
           : null,
     );
   }
@@ -25,7 +28,8 @@ class User {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'phone': phone,
+      'username': username,
+      'email': email,
       'created_at': createdAt.toIso8601String(),
       'last_login_at': lastLoginAt?.toIso8601String(),
     };
@@ -33,7 +37,7 @@ class User {
 
   @override
   String toString() {
-    return 'User(id: $id, phone: $phone)';
+    return 'User(id: $id, username: $username, email: $email)';
   }
 }
 
