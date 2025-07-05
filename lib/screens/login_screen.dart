@@ -184,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
                           );
                         },
-                        child: const Text('��记密码'),
+                        child: const Text('忘记密码'),
                       ),
                     ],
                   ),

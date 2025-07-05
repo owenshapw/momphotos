@@ -29,6 +29,14 @@ dependencies:
   # State management
   provider: ^6.1.1
 
+  # Routing
+  go_router: ^14.2.0
+  flutter_web_plugins:
+    sdk: flutter
+
+  # Web view for password reset
+  webview_flutter: ^4.7.0
+
   # Utilities
   intl: ^0.18.1
   path: ^1.9.1
