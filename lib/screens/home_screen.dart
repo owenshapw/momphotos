@@ -22,6 +22,26 @@ class _HomeScreenState extends State<HomeScreen> {
     // 数据已在启动画面中预加载，这里不需要重复加载
   }
 
+  Future<void> _deleteAccount() async {
+    try {
+      await AuthService.deleteAccount();
+      
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('账户已注销')),
+      );
+      
+      context.go('/login');
+    } catch (e) {
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('注销失败: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -66,6 +86,32 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (!context.mounted) return;
                   context.go('/login');
                 }
+              } else if (value == 'delete_account') {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('确认注销账户'),
+                    content: const Text(
+                      '⚠️ 警告：注销账户后，您的所有照片将永久删除且无法恢复！\n\n'
+                      '此操作不可撤销，请谨慎考虑。',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('取消'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                        child: const Text('确认注销'),
+                      ),
+                    ],
+                  ),
+                );
+                
+                if (confirmed == true) {
+                  await _deleteAccount();
+                }
               }
             },
             itemBuilder: (context) => [
@@ -82,9 +128,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 value: 'logout',
                 child: Row(
                   children: [
-                    Icon(Icons.logout, color: Colors.red),
+                    Icon(Icons.logout, color: Colors.orange),
                     SizedBox(width: 8),
-                    Text('退出登录', style: TextStyle(color: Colors.red)),
+                    Text('退出登录', style: TextStyle(color: Colors.orange)),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete_account',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_forever, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('注销账户', style: TextStyle(color: Colors.red)),
                   ],
                 ),
               ),
@@ -120,7 +176,8 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async {
-                await context.read<PhotoProvider>().loadPhotos(forceRefresh: true);
+                final photoProvider = context.read<PhotoProvider>();
+                await photoProvider.loadPhotos(forceRefresh: true);
               },
               child: Consumer<PhotoProvider>(
                 builder: (context, photoProvider, child) {

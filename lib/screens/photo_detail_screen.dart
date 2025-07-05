@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:http/http.dart' as http;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 import '../models/photo.dart';
+import '../services/photo_provider.dart';
+import 'package:provider/provider.dart';
 
 class PhotoDetailScreen extends StatefulWidget {
   final Photo photo;
@@ -160,6 +166,19 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
         ),
         centerTitle: true,
         actions: [
+          // 下载按钮
+          IconButton(
+            icon: const Icon(Icons.download, color: Colors.white),
+            onPressed: () => _downloadPhoto(allPhotos[_currentIndex]),
+            tooltip: '下载照片',
+          ),
+          // 删除按钮
+          IconButton(
+            icon: const Icon(Icons.delete, color: Colors.white),
+            onPressed: () => _deletePhoto(allPhotos[_currentIndex]),
+            tooltip: '删除照片',
+          ),
+          // 编辑按钮
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.white),
             onPressed: () async {
@@ -528,5 +547,91 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _downloadPhoto(Photo photo) async {
+    try {
+      // 显示下载进度
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('正在下载照片...')),
+      );
+
+      // 下载照片
+      final response = await http.get(Uri.parse(photo.url));
+      if (response.statusCode == 200) {
+        // 在Web平台上，触发浏览器下载
+        if (kIsWeb) {
+          // 创建下载链接
+          final bytes = response.bodyBytes;
+          final blob = web.Blob([bytes.toJS].toJS);
+          final url = web.URL.createObjectURL(blob);
+          final anchor = web.HTMLAnchorElement();
+          anchor.href = url;
+          anchor.download = 'photo_${photo.id}.jpg';
+          anchor.click();
+          web.URL.revokeObjectURL(url);
+        } else {
+          // 在移动平台上，保存到相册
+          // 这里需要添加相应的权限和插件
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('下载功能在移动端需要额外配置')),
+            );
+          }
+        }
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('照片下载成功！')),
+          );
+        }
+      } else {
+        throw Exception('下载失败');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('下载失败: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deletePhoto(Photo photo) async {
+    // 确认删除对话框
+    final photoProvider = context.read<PhotoProvider>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认删除'),
+        content: const Text('确定要删除这张照片吗？此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await photoProvider.deletePhoto(photo.id);
+        if (!mounted) return;
+        // 这里可以安全用 context
+        context.pop();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('删除失败: $e')),
+          );
+        }
+      }
+    }
   }
 } 

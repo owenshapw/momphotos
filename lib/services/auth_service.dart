@@ -146,4 +146,27 @@ class AuthService {
       await _saveUserData(user, _currentToken!);
     }
   }
+
+  // 注销账户
+  static Future<void> deleteAccount() async {
+    try {
+      await ApiService.deleteAccount();
+      
+      // 清除本地存储和状态
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_userKey);
+      await prefs.remove(_tokenKey);
+      
+      _currentUser = null;
+      _currentToken = null;
+      _lastUserId = null;
+      ApiService.clearAuthToken();
+      ApiService.clearCache();
+      
+      developer.log('🗑️ 账户已注销，所有数据已清除');
+    } catch (e) {
+      developer.log('❌ 注销账户失败: $e');
+      rethrow;
+    }
+  }
 } 

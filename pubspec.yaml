@@ -37,6 +37,9 @@ dependencies:
   # Web view for password reset
   webview_flutter: ^4.7.0
 
+  # Web APIs
+  web: ^0.5.0
+
   # Utilities
   intl: ^0.18.1
   path: ^1.9.1

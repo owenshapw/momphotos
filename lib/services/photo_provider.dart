@@ -375,6 +375,27 @@ class PhotoProvider with ChangeNotifier {
     }
   }
 
+  // 删除照片
+  Future<void> deletePhoto(String photoId) async {
+    _setLoading(true);
+    _error = null;
+    
+    try {
+      await ApiService.deletePhoto(photoId);
+      
+      // 从照片列表中移除
+      _photos.removeWhere((photo) => photo.id == photoId);
+      _applySearchFilter();
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow; // 重新抛出异常，让调用者处理
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   // 更新照片标签和描述
   Future<void> updatePhotoTags({
     required String photoId,

@@ -354,6 +354,59 @@ class ApiService {
     }
   }
 
+  // 删除照片
+  static Future<void> deletePhoto(String photoId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/photos/$photoId'),
+        headers: {
+          if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+        },
+      ).timeout(timeout);
+
+      if (response.statusCode == 200) {
+        // 清除缓存，因为照片列表已更改
+        clearCache();
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['error'] ?? '删除失败');
+      }
+    } on TimeoutException {
+      throw Exception('请求超时，请检查网络连接');
+    } on SocketException {
+      throw Exception('网络连接失败，请检查网络设置');
+    } catch (e) {
+      throw Exception('删除错误: $e');
+    }
+  }
+
+  // 注销账户
+  static Future<void> deleteAccount() async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/auth/account'),
+        headers: {
+          if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+        },
+      ).timeout(timeout);
+
+      if (response.statusCode == 200) {
+        // 清除认证信息和缓存
+        clearAuthToken();
+        clearCache();
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['error'] ?? '注销账户失败');
+      }
+    } on TimeoutException {
+      throw Exception('请求超时，请检查网络连接');
+    } on SocketException {
+      throw Exception('网络连接失败，请检查网络设置');
+    } catch (e) {
+      throw Exception('注销账户错误: $e');
+    }
+  }
+
   // 为照片添加或更新标签和描述
   static Future<Photo> updatePhotoTags({
     required String photoId,
