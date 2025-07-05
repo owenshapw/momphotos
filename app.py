@@ -192,11 +192,11 @@ def forgot_password():
             sender=SENDER_EMAIL,
             recipients=[email]
         )
-        msg.body = f"您好，请点击以下链接在浏览器中打开以重置您的密码：
+        msg.body = f"""您好，请点击以下链接在浏览器中打开以重置您的密码：
 {reset_link}
 
 如果您没有请求重置密码，请忽略此邮件。
-该链接将在15分钟后失效."
+该链接将在15分钟后失效。"""
         
         mail.send(msg)
         
