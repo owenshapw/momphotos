@@ -650,7 +650,6 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
   }
 
   Future<void> _deletePhoto(Photo photo) async {
-    // 确认删除对话框
     final photoProvider = context.read<PhotoProvider>();
     final confirmed = await showDialog<bool>(
       context: context,
@@ -672,6 +671,21 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
     );
 
     if (confirmed == true) {
+      // 在删除前确定下一个要查看的照片ID
+      final photos = widget.photos;
+      String? nextPhotoId;
+      if (photos.length > 1) {
+        // 如果当前不是最后一张，则定位到下一张
+        if (_currentIndex < photos.length - 1) {
+          nextPhotoId = photos[_currentIndex + 1].id;
+        } 
+        // 如果当前是最后一张，则定位到前一张
+        else if (_currentIndex > 0) {
+          nextPhotoId = photos[_currentIndex - 1].id;
+        }
+      }
+      photoProvider.lastViewedPhotoId = nextPhotoId;
+
       try {
         await photoProvider.deletePhoto(photo.id);
         if (!mounted) return;
@@ -680,7 +694,6 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
           const SnackBar(content: Text('照片删除成功！')),
         );
         
-        // 返回上一页
         context.pop();
       } catch (e) {
         if (mounted) {
