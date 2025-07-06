@@ -651,6 +651,8 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
 
   Future<void> _deletePhoto(Photo photo) async {
     final photoProvider = context.read<PhotoProvider>();
+    final navigator = GoRouter.of(context);
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -670,37 +672,49 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
       ),
     );
 
-    if (confirmed == true) {
-      // 在删除前确定下一个要查看的照片ID
-      final photos = widget.photos;
-      String? nextPhotoId;
-      if (photos.length > 1) {
-        // 如果当前不是最后一张，则定位到下一张
-        if (_currentIndex < photos.length - 1) {
-          nextPhotoId = photos[_currentIndex + 1].id;
-        } 
-        // 如果当前是最后一张，则定位到前一张
-        else if (_currentIndex > 0) {
-          nextPhotoId = photos[_currentIndex - 1].id;
-        }
-      }
-      photoProvider.lastViewedPhotoId = nextPhotoId;
+    if (confirmed != true) return;
 
-      try {
-        await photoProvider.deletePhoto(photo.id);
-        if (!mounted) return;
-        
+    try {
+      final int deletedIndex = _currentIndex;
+      final int photoCount = widget.photos.length;
+
+      await photoProvider.deletePhoto(photo.id);
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('照片删除成功！')),
+      );
+
+      // 如果删除的是最后一张照片，则返回上一页
+      if (photoCount <= 1) {
+        navigator.pop();
+        return;
+      }
+
+      // 获取更新后的照片列表
+      final newPhotos = photoProvider.photos;
+      if (newPhotos.isEmpty) {
+        navigator.pop();
+        return;
+      }
+
+      // 计算下一个要显示的索引
+      // 如果删除的是最后一张，新索引是新的最后一张
+      // 否则，新索引保持不变（因为后面的元素前移了）
+      final newIndex = (deletedIndex < newPhotos.length) ? deletedIndex : newPhotos.length - 1;
+      final Photo nextPhotoToShow = newPhotos[newIndex];
+
+      // 使用新数据替换当前页面
+      navigator.pushReplacement('/photo-detail', extra: {
+        'photo': nextPhotoToShow,
+        'photos': newPhotos,
+      });
+
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('照片删除成功！')),
+          SnackBar(content: Text('删除失败: $e')),
         );
-        
-        context.pop();
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('删除失败: $e')),
-          );
-        }
       }
     }
   }
