@@ -337,8 +337,8 @@ class PhotoCard extends StatelessWidget {
               httpHeaders: const {
                 'User-Agent': 'Mozilla/5.0 (compatible; Flutter Web)',
               },
-              // 使用简化的缓存键
-              cacheKey: photo.id,
+              // 使用简化的缓存键，并为缩略图添加后缀
+              cacheKey: '${photo.id}_thumb',
               // 优化缓存设置 - 提高质量
               maxWidthDiskCache: 1200,
               maxHeightDiskCache: 1200,

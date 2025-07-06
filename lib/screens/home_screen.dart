@@ -14,7 +14,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final ScrollController _scrollController = ScrollController();
+  final GlobalKey<PhotoGridState> _gridKey = GlobalKey<PhotoGridState>();
 
   @override
   void initState() {
@@ -25,12 +25,6 @@ class _HomeScreenState extends State<HomeScreen> {
         photoProvider.loadPhotos(forceRefresh: false);
       }
     });
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
   }
 
   Future<void> _deleteAccount() async {
@@ -61,13 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: const Icon(Icons.home),
           tooltip: '回到顶部',
           onPressed: () {
-            if (_scrollController.hasClients) {
-              _scrollController.animateTo(
-                0,
-                duration: const Duration(milliseconds: 400),
-                curve: Curves.easeOut,
-              );
-            }
+            _gridKey.currentState?.scrollToTop();
           },
         ),
         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -142,7 +130,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 value: 'user_info',
                 enabled: false,
                 child: Text(
-                  '当前用户: ${AuthService.currentUser?.username ?? '未知'}',
+                  '当前用户: ${AuthService.currentUser?.username ?? '未知'}'
+,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -190,12 +179,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: Column(
-        children: const [
-          Padding(
+        children: [
+          const Padding(
             padding: EdgeInsets.all(16.0),
             child: CustomSearchBar(),
           ),
-          Expanded(child: PhotoGridContainer()),
+          Expanded(child: PhotoGridContainer(gridKey: _gridKey)),
         ],
       ),
     );
@@ -203,121 +192,84 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class PhotoGridContainer extends StatelessWidget {
-  const PhotoGridContainer({super.key});
+  final Key? gridKey;
+
+  const PhotoGridContainer({super.key, this.gridKey});
 
   @override
   Widget build(BuildContext context) {
-    final scrollController = ScrollController();
-
     return RefreshIndicator(
-              onRefresh: () async {
+      onRefresh: () async {
         final photoProvider = context.read<PhotoProvider>();
         await photoProvider.loadPhotos(forceRefresh: true);
-              },
-              child: Consumer<PhotoProvider>(
-                builder: (context, photoProvider, child) {
-                  if (photoProvider.isLoading && !photoProvider.hasLoaded) {
-                    return const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 16),
-                          Text(
-                            '正在加载照片...',
+      },
+      child: Consumer<PhotoProvider>(
+        builder: (context, photoProvider, child) {
+          if (photoProvider.isLoading && !photoProvider.hasLoaded) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text(
+                    '正在加载照片...',
                     style: TextStyle(fontSize: 16, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-          if (photoProvider.isLoading &&
-              photoProvider.hasLoaded &&
-              photoProvider.photos.isNotEmpty) {
-            return PhotoGrid(
-              key: const ValueKey('photo_grid'),
-              photos: photoProvider.photosByDecade,
-              scrollController: scrollController,
+                  ),
+                ],
+              ),
             );
           }
 
-                  if (photoProvider.error != null) {
+          if (photoProvider.error != null) {
             return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
                     Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-                              const SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     Text('加载失败', style: TextStyle(fontSize: 18, color: Colors.grey[600])),
-                              const SizedBox(height: 8),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 32),
-                                child: Text(
-                                  photoProvider.error!,
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Text(
+                        photoProvider.error!,
                         style: TextStyle(color: Colors.grey[500], fontSize: 14),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  ElevatedButton.icon(
-                                    onPressed: () {
-                                      photoProvider.clearError();
-                                      photoProvider.loadPhotos();
-                                    },
-                                    icon: const Icon(Icons.refresh),
-                                    label: const Text('重试'),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  TextButton.icon(
-                                    onPressed: () {
-                                      photoProvider.clearError();
-                                      Future.delayed(const Duration(seconds: 2), () {
-                                        if (context.mounted) {
-                                          photoProvider.loadPhotos();
-                                        }
-                                      });
-                                    },
-                                    icon: const Icon(Icons.schedule),
-                                    label: const Text('稍后重试'),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            photoProvider.clearError();
+                            photoProvider.loadPhotos();
+                          },
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('重试'),
                         ),
-                    );
-                  }
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
 
-          if (photoProvider.hasLoaded && photoProvider.filteredPhotos.isEmpty) {
+          if (photoProvider.photos.isEmpty && photoProvider.hasLoaded) {
             return const Center(child: Text('暂无照片'));
           }
 
-          if (photoProvider.hasLoaded && photoProvider.filteredPhotos.isNotEmpty) {
-            return PhotoGrid(
-              key: const ValueKey('photo_grid'),
-              photos: photoProvider.photosByDecade,
-              scrollController: scrollController,
-            );
-          }
-
-          return const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('正在准备...', style: TextStyle(fontSize: 16, color: Colors.grey)),
-              ],
-                      ),
-                    );
+          return PhotoGrid(
+            key: gridKey,
+            photos: photoProvider.photosByDecade,
+          );
         },
       ),
     );
   }
-} 
+}

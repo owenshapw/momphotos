@@ -240,7 +240,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                           key: ValueKey(photo.id),
                           imageProvider: CachedNetworkImageProvider(
                             photo.url,
-                            cacheKey: photo.id,
+                            cacheKey: '${photo.id}_original',
                           ),
               minScale: PhotoViewComputedScale.contained,
               maxScale: PhotoViewComputedScale.covered * 2,
