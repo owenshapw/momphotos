@@ -17,13 +17,13 @@ class ApiService {
   // 本地开发服务器 URL: 'http://localhost:8080'
   
   // 设置超时时间
-  static const Duration timeout = Duration(seconds: 30);
+  static const Duration timeout = Duration(seconds: 10);
   
   // 缓存机制 - 与用户ID绑定
   static List<Photo>? _cachedPhotos;
   static DateTime? _lastCacheTime;
   static String? _cachedUserId; // 新增：记录缓存对应的用户ID
-  static const Duration cacheValidDuration = Duration(minutes: 5);
+  static const Duration cacheValidDuration = Duration(minutes: 30); // 延长缓存时间到30分钟
   
   // 获取所有照片（带缓存和分页）
   static Future<List<Photo>> getPhotos({int? limit, int? offset, bool forceRefresh = false}) async {
@@ -37,10 +37,11 @@ class ApiService {
       developer.log('🔄 ApiService: 用户切换，清空缓存 ($_cachedUserId -> $currentUserId)');
     }
     
-    // 检查缓存
+    // 检查缓存 - 优先使用缓存，除非强制刷新
     if (!forceRefresh && _cachedPhotos != null && _lastCacheTime != null) {
       final timeSinceLastCache = DateTime.now().difference(_lastCacheTime!);
       if (timeSinceLastCache < cacheValidDuration) {
+        developer.log('📸 ApiService: 使用缓存数据 (用户ID: $currentUserId, 照片数: ${_cachedPhotos!.length})');
         // 如果请求分页，从缓存中返回对应部分
         if (limit != null && offset != null) {
           final start = offset;
@@ -61,6 +62,7 @@ class ApiService {
         uri,
         headers: {
           if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+          'Connection': 'keep-alive', // 保持连接
         },
       ).timeout(timeout);
       
@@ -321,7 +323,7 @@ class ApiService {
       // 计算缩略图尺寸，保持宽高比
       final originalWidth = originalImage.width;
       final originalHeight = originalImage.height;
-      final maxSize = 400; // 增加缩略图尺寸，提高清晰度
+      final maxSize = 1200; // 进一步增加缩略图尺寸，提高清晰度
       
       int thumbnailWidth, thumbnailHeight;
       if (originalWidth > originalHeight) {
@@ -335,7 +337,7 @@ class ApiService {
       }
       
       final thumbnail = img.copyResize(originalImage, width: thumbnailWidth, height: thumbnailHeight, interpolation: img.Interpolation.cubic);
-      final thumbnailBytes = img.encodeJpg(thumbnail, quality: 85); // 适度的压缩质量
+      final thumbnailBytes = img.encodeJpg(thumbnail, quality: 98); // 进一步提高缩略图质量
       final thumbFileName =
           'photos/thumbnails/${random}_${p.basename(imageFile.path)}';
       final thumbStorageResponse = await supabase.storage

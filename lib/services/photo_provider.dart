@@ -86,9 +86,9 @@ class PhotoProvider with ChangeNotifier {
     // 检查用户是否发生变化
     final currentUserId = AuthService.currentUser?.id;
     if (currentUserId != null && _lastLoadedUserId != currentUserId) {
-          developer.log('🔄 检测到用户切换，重置PhotoProvider状态');
-    developer.log('  上次加载用户ID: $_lastLoadedUserId');
-    developer.log('  当前用户ID: $currentUserId');
+      developer.log('🔄 检测到用户切换，重置PhotoProvider状态');
+      developer.log('  上次加载用户ID: $_lastLoadedUserId');
+      developer.log('  当前用户ID: $currentUserId');
       reset();
       _lastLoadedUserId = currentUserId;
       forceRefresh = true; // 强制刷新
@@ -111,12 +111,8 @@ class PhotoProvider with ChangeNotifier {
         // 使用新的API，支持缓存
         final allPhotos = await ApiService.getPhotos(forceRefresh: forceRefresh);
         
-        // 过滤掉已删除的照片（只在强制刷新时进行）
-        if (forceRefresh) {
-          _photos = await _filterValidPhotos(allPhotos);
-        } else {
-          _photos = allPhotos;
-        }
+        // 直接使用API返回的照片，不再进行额外的验证（提高速度）
+        _photos = allPhotos;
         
         // 按拍摄日期排序（从近到远）
         _photos.sort((a, b) {
@@ -136,9 +132,12 @@ class PhotoProvider with ChangeNotifier {
         _applySearchFilter();
         _hasLoaded = true; // 标记为已加载
         _lastLoadedUserId = currentUserId; // 记录当前加载的用户ID
-        notifyListeners();
         
         developer.log('📸 照片加载完成: ${_photos.length} 张照片 (用户ID: $currentUserId)');
+        
+        // 先通知UI更新，然后设置加载完成
+        notifyListeners();
+        _setLoading(false);
         
         return; // 成功则退出
       } catch (e) {
@@ -146,6 +145,7 @@ class PhotoProvider with ChangeNotifier {
         if (retryCount >= maxRetries) {
           // 最后一次重试失败
           _error = e.toString();
+          _setLoading(false);
           notifyListeners();
         } else {
           // 减少重试间隔，提高响应速度
@@ -153,8 +153,6 @@ class PhotoProvider with ChangeNotifier {
         }
       }
     }
-    
-    _setLoading(false);
   }
 
   // 过滤有效的照片（未删除的照片）- 优化版本

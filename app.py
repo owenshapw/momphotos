@@ -215,7 +215,7 @@ def forgot_password():
 
         msg = Message(
             '重置您的密码',
-            sender=SENDER_EMAIL,
+            sender=('妈妈的照片', SENDER_EMAIL),
             recipients=[email]
         )
         msg.body = f"""您好，请点击以下链接在浏览器中打开以重置您的密码：

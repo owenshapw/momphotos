@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../services/photo_provider.dart';
-import 'home_screen.dart';
 import '../services/auth_service.dart';
 import 'dart:developer' as developer;
 
@@ -108,15 +108,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     
     // 导航到主界面
     if (mounted) {
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-          transitionDuration: const Duration(milliseconds: 300),
-        ),
-      );
+      // 使用go_router导航到主界面
+      context.go('/');
     }
   }
 

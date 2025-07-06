@@ -14,7 +14,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final GlobalKey<PhotoGridState> _photoGridKey = GlobalKey<PhotoGridState>();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -23,9 +23,16 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final photoProvider = context.read<PhotoProvider>();
       if (AuthService.isLoggedIn && !photoProvider.hasLoaded) {
-        photoProvider.loadPhotos(forceRefresh: true);
+        // 使用缓存加载，提高速度
+        photoProvider.loadPhotos(forceRefresh: false);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _deleteAccount() async {
@@ -58,7 +65,13 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: const Icon(Icons.home),
           tooltip: '回到顶部',
           onPressed: () {
-            _photoGridKey.currentState?.scrollToTop();
+            if (_scrollController.hasClients) {
+              _scrollController.animateTo(
+                0,
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOut,
+              );
+            }
           },
         ),
         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -197,12 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
               child: Consumer<PhotoProvider>(
                 builder: (context, photoProvider, child) {
-                  // 如果正在加载但已有数据，显示现有数据
-                  if (photoProvider.isLoading && photoProvider.hasLoaded && photoProvider.photos.isNotEmpty) {
-                    return PhotoGrid(key: _photoGridKey, photos: photoProvider.photosByDecade);
-                  }
-                  
-                  // 如果正在加载且没有数据，显示简单加载指示器
+                  // 如果正在加载且没有数据，显示加载指示器
                   if (photoProvider.isLoading && !photoProvider.hasLoaded) {
                     return const Center(
                       child: Column(
@@ -219,6 +227,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
+                    );
+                  }
+
+                  // 如果正在加载但已有数据，显示现有数据
+                  if (photoProvider.isLoading && photoProvider.hasLoaded && photoProvider.photos.isNotEmpty) {
+                    return PhotoGrid(
+                      key: const ValueKey('photo_grid'),
+                      photos: photoProvider.photosByDecade,
+                      scrollController: _scrollController,
                     );
                   }
 
@@ -290,7 +307,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   }
 
-                  if (photoProvider.filteredPhotos.isEmpty) {
+                  // 只有在数据已加载完成且确实没有照片时才显示空状态
+                  if (photoProvider.hasLoaded && photoProvider.filteredPhotos.isEmpty) {
                     return SingleChildScrollView(
                       child: Center(
                         child: Padding(
@@ -464,7 +482,32 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   }
 
-                  return PhotoGrid(key: _photoGridKey, photos: photoProvider.photosByDecade);
+                  // 如果有照片数据，显示照片网格
+                  if (photoProvider.hasLoaded && photoProvider.filteredPhotos.isNotEmpty) {
+                    return PhotoGrid(
+                      key: const ValueKey('photo_grid'),
+                      photos: photoProvider.photosByDecade,
+                      scrollController: _scrollController,
+                    );
+                  }
+
+                  // 如果还没有加载过数据，显示加载指示器
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text(
+                          '正在准备...',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
                 },
               ),
             ),

@@ -6,6 +6,7 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 
 import 'services/photo_provider.dart';
 import 'services/auth_service.dart';
+import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/reset_password_screen.dart';
 import 'screens/forgot_password_screen.dart';
@@ -22,8 +23,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 // 1. 定义路由
 final _router = GoRouter(
-  initialLocation: '/',
+  initialLocation: '/splash',
   routes: [
+    GoRoute(
+      path: '/splash',
+      builder: (context, state) => const SplashScreen(),
+    ),
     GoRoute(
       path: '/',
       builder: (context, state) => AuthService.isLoggedIn ? const HomeScreen() : const LoginScreen(),
@@ -89,6 +94,11 @@ final _router = GoRouter(
     ),
   ],
   redirect: (context, state) {
+    // 启动画面不需要重定向
+    if (state.matchedLocation == '/splash') {
+      return null;
+    }
+    
     // 简单的重定向逻辑，可以根据需要扩展
     final loggedIn = AuthService.isLoggedIn;
     final publicRoutes = [
@@ -132,22 +142,30 @@ Future<void> _preloadData() async {
     // 初始化认证服务
     await AuthService.initialize();
     
-    // 预热API服务
-    await Future.delayed(const Duration(milliseconds: 100));
+    // 减少预热延迟
+    await Future.delayed(const Duration(milliseconds: 50));
     
-    // 运行完整的网络连接测试
-    final debugResults = await DebugHelper.testNetworkConnection();
-    DebugHelper.printDebugInfo(debugResults);
+    // 在后台运行网络连接测试，不阻塞启动
+    Future.microtask(() async {
+      try {
+        final debugResults = await DebugHelper.testNetworkConnection();
+        DebugHelper.printDebugInfo(debugResults);
+      } catch (e) {
+        developer.log('网络测试失败: $e');
+      }
+    });
     
-    // 在后台预热健康检查��点
-    try {
-      final response = await http.get(
-        Uri.parse('http://192.168.14.64:8080/health'),
-      ).timeout(const Duration(seconds: 5));
-      developer.log('API预热成功: ${response.statusCode}');
-    } catch (e) {
-      developer.log('API预热失败: $e');
-    }
+    // 在后台预热健康检查端点，不阻塞启动
+    Future.microtask(() async {
+      try {
+        final response = await http.get(
+          Uri.parse('http://192.168.14.64:8080/health'),
+        ).timeout(const Duration(seconds: 3));
+        developer.log('API预热成功: ${response.statusCode}');
+      } catch (e) {
+        developer.log('API预热失败: $e');
+      }
+    });
   } catch (e) {
     // 静默处理错误，不影响应用启动
     developer.log('预加载数据失败: $e');
@@ -166,8 +184,8 @@ class MyApp extends StatelessWidget {
         if (AuthService.isLoggedIn) {
           // 延迟加载，确保Provider已创建
           Future.microtask(() async {
-            // 强制刷新，确保加载当前用户的照片
-            await provider.loadPhotos(forceRefresh: true);
+            // 使用缓存加载，提高速度
+            await provider.loadPhotos(forceRefresh: false);
           });
         }
         return provider;

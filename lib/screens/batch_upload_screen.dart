@@ -33,9 +33,10 @@ class _BatchUploadScreenState extends State<BatchUploadScreen> {
   Future<void> _pickImages() async {
     try {
       final List<XFile> images = await _picker.pickMultiImage(
-        maxWidth: 3840, // 提高最大宽度到4K
-        maxHeight: 3840, // 提高最大高度到4K
-        imageQuality: 95, // 提高图片质量
+        // 完全移除所有压缩设置，保持原始质量
+        // imageQuality: 100, // 移除质量设置
+        // maxWidth: 3840, // 移除尺寸限制
+        // maxHeight: 3840, // 移除尺寸限制
       );
 
       if (images.isNotEmpty) {
