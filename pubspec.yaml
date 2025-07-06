@@ -49,6 +49,7 @@ dependencies:
   
   # Image saving
   image_gallery_saver: ^2.0.3
+  scrollable_positioned_list: ^0.3.8
 
 dev_dependencies:
   flutter_test:

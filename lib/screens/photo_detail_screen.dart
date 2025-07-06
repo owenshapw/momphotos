@@ -40,6 +40,11 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
     if (_currentIndex == -1) _currentIndex = 0;
     
     _pageController = PageController(initialPage: _currentIndex);
+
+    // 设置初始查看的照片ID
+    if (widget.photos.isNotEmpty) {
+      context.read<PhotoProvider>().lastViewedPhotoId = widget.photos[_currentIndex].id;
+    }
   }
 
   @override
@@ -223,6 +228,8 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                     onPageChanged: (index) {
                       setState(() {
                         _currentIndex = index;
+                        // 更新最后查看的照片ID
+                        context.read<PhotoProvider>().lastViewedPhotoId = allPhotos[index].id;
                       });
                       
                       // 页面变化时预加载相邻照片

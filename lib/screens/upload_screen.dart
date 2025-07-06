@@ -76,20 +76,13 @@ class _UploadScreenState extends State<UploadScreen> {
       return;
     }
 
-    // 标签现在是可选的，只用于搜索功能
-    // if (_tags.isEmpty) {
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     const SnackBar(content: Text('请至少添加一个人物标签')),
-    //   );
-    //   return;
-    // }
-
     setState(() {
       _isUploading = true;
     });
 
     try {
-      await context.read<PhotoProvider>().uploadPhoto(
+      final photoProvider = context.read<PhotoProvider>();
+      final newPhoto = await photoProvider.uploadPhoto(
         imagePath: _selectedImage!.path,
         tags: _tags,
         year: _selectedYear,
@@ -102,7 +95,12 @@ class _UploadScreenState extends State<UploadScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('照片上传成功！')),
         );
-        context.pop();
+        
+        // 跳转到新上传的照片详情页
+        context.push('/photo-detail', extra: {
+          'photo': newPhoto,
+          'photos': photoProvider.photos,
+        });
       }
     } catch (e) {
       if (mounted) {

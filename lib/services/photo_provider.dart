@@ -15,6 +15,7 @@ class PhotoProvider with ChangeNotifier {
   List<String> _searchHistory = [];
   bool _hasLoaded = false; // 添加加载状态标记
   String? _lastLoadedUserId;
+  String? lastViewedPhotoId;
 
   // Getters
   List<Photo> get photos => _photos;
@@ -294,7 +295,7 @@ class PhotoProvider with ChangeNotifier {
   }
 
   // 上传照片
-  Future<void> uploadPhoto({
+  Future<Photo> uploadPhoto({
     required String imagePath,
     required List<String> tags,
     int? year,
@@ -315,9 +316,11 @@ class PhotoProvider with ChangeNotifier {
       _insertPhotoInOrder(photo);
       _applySearchFilter();
       notifyListeners();
+      return photo; // 返回上传成功的照片
     } catch (e) {
       _error = e.toString();
       notifyListeners();
+      rethrow; // 重新抛出异常
     } finally {
       _setLoading(false);
     }

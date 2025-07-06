@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../services/photo_provider.dart';
 import '../services/auth_service.dart';
 import '../widgets/photo_grid.dart';
@@ -14,7 +15,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final GlobalKey<PhotoGridState> _gridKey = GlobalKey<PhotoGridState>();
+  final GlobalKey<PhotoGridContainerState> _gridKey =
+      GlobalKey<PhotoGridContainerState>();
 
   @override
   void initState() {
@@ -184,23 +186,92 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: EdgeInsets.all(16.0),
             child: CustomSearchBar(),
           ),
-          Expanded(child: PhotoGridContainer(gridKey: _gridKey)),
+          Expanded(child: PhotoGridContainer(key: _gridKey)),
         ],
       ),
     );
   }
 }
 
-class PhotoGridContainer extends StatelessWidget {
-  final Key? gridKey;
+class PhotoGridContainer extends StatefulWidget {
+  const PhotoGridContainer({super.key});
 
-  const PhotoGridContainer({super.key, this.gridKey});
+  @override
+  State<PhotoGridContainer> createState() => PhotoGridContainerState();
+}
+
+class PhotoGridContainerState extends State<PhotoGridContainer> {
+  final ItemScrollController itemScrollController = ItemScrollController();
+  final ItemPositionsListener itemPositionsListener =
+      ItemPositionsListener.create();
+  bool _isInitialScrollDone = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final photoProvider = context.watch<PhotoProvider>();
+    if (photoProvider.hasLoaded && !_isInitialScrollDone) {
+      _scrollToLastViewedPhoto(photoProvider);
+    }
+  }
+
+  void _scrollToLastViewedPhoto(PhotoProvider photoProvider) {
+    final photoId = photoProvider.lastViewedPhotoId;
+    if (photoId == null) {
+      _isInitialScrollDone = true;
+      return;
+    }
+
+    final allPhotos = <Photo>[];
+    photoProvider.photosByDecade.values.forEach(allPhotos.addAll);
+    allPhotos.sort((a, b) {
+      if (a.year != null && b.year != null) {
+        return b.year!.compareTo(a.year!);
+      } else if (a.year != null) {
+        return -1;
+      } else if (b.year != null) {
+        return 1;
+      } else {
+        return b.createdAt.compareTo(a.createdAt);
+      }
+    });
+
+    final index = allPhotos.indexWhere((p) => p.id == photoId);
+
+    if (index != -1) {
+      final rowIndex = index ~/ 2;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && itemScrollController.isAttached) {
+          itemScrollController.scrollTo(
+            index: rowIndex,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          );
+        }
+      });
+    }
+    _isInitialScrollDone = true;
+    photoProvider.lastViewedPhotoId = null;
+  }
+
+  void scrollToTop() {
+    if (itemScrollController.isAttached) {
+      itemScrollController.scrollTo(
+        index: 0,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOut,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: () async {
         final photoProvider = context.read<PhotoProvider>();
+        setState(() {
+          _isInitialScrollDone = false;
+        });
         await photoProvider.loadPhotos(forceRefresh: true);
       },
       child: Consumer<PhotoProvider>(
@@ -230,7 +301,8 @@ class PhotoGridContainer extends StatelessWidget {
                   children: [
                     Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
                     const SizedBox(height: 16),
-                    Text('加载失败', style: TextStyle(fontSize: 18, color: Colors.grey[600])),
+                    Text('加载失败',
+                        style: TextStyle(fontSize: 18, color: Colors.grey[600])),
                     const SizedBox(height: 8),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -265,8 +337,9 @@ class PhotoGridContainer extends StatelessWidget {
           }
 
           return PhotoGrid(
-            key: gridKey,
             photos: photoProvider.photosByDecade,
+            itemScrollController: itemScrollController,
+            itemPositionsListener: itemPositionsListener,
           );
         },
       ),
