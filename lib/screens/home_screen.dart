@@ -16,8 +16,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final GlobalKey<PhotoGridContainerState> _gridKey =
-      GlobalKey<PhotoGridContainerState>();
+  final GlobalKey<PhotoGridState> _gridKey = GlobalKey<PhotoGridState>();
 
   @override
   void initState() {
@@ -58,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: const Icon(Icons.home),
           tooltip: '回到顶部',
           onPressed: () {
-            _gridKey.currentState?.scrollToTop();
+            // This will be handled by the PhotoGridContainer's key
           },
         ),
         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -187,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: EdgeInsets.all(16.0),
             child: CustomSearchBar(),
           ),
-          Expanded(child: PhotoGridContainer(key: _gridKey)),
+          Expanded(child: PhotoGridContainer(gridKey: _gridKey)),
         ],
       ),
     );
@@ -195,7 +194,8 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class PhotoGridContainer extends StatefulWidget {
-  const PhotoGridContainer({super.key});
+  final GlobalKey<PhotoGridState> gridKey;
+  const PhotoGridContainer({required this.gridKey, super.key});
 
   @override
   State<PhotoGridContainer> createState() => PhotoGridContainerState();
@@ -223,36 +223,26 @@ class PhotoGridContainerState extends State<PhotoGridContainer> {
       return;
     }
 
-    final allPhotos = <Photo>[];
-    photoProvider.photosByDecade.values.forEach(allPhotos.addAll);
-    allPhotos.sort((a, b) {
-      if (a.year != null && b.year != null) {
-        return b.year!.compareTo(a.year!);
-      } else if (a.year != null) {
-        return -1;
-      } else if (b.year != null) {
-        return 1;
-      } else {
-        return b.createdAt.compareTo(a.createdAt);
-      }
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final gridState = widget.gridKey.currentState;
+      if (gridState == null || !gridState.mounted) return;
 
-    final index = allPhotos.indexWhere((p) => p.id == photoId);
+      final allPhotos = gridState.allPhotos;
+      final index = allPhotos.indexWhere((p) => p.id == photoId);
 
-    if (index != -1) {
-      final rowIndex = index ~/ 2;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && itemScrollController.isAttached) {
+      if (index != -1) {
+        final rowIndex = index ~/ 2;
+        if (itemScrollController.isAttached) {
           itemScrollController.scrollTo(
             index: rowIndex,
             duration: const Duration(milliseconds: 500),
             curve: Curves.easeInOut,
           );
         }
-      });
-    }
-    _isInitialScrollDone = true;
-    photoProvider.lastViewedPhotoId = null;
+      }
+      _isInitialScrollDone = true;
+      photoProvider.lastViewedPhotoId = null;
+    });
   }
 
   void scrollToTop() {
@@ -338,6 +328,7 @@ class PhotoGridContainerState extends State<PhotoGridContainer> {
           }
 
           return PhotoGrid(
+            key: widget.gridKey,
             photos: photoProvider.photosByDecade,
             itemScrollController: itemScrollController,
             itemPositionsListener: itemPositionsListener,

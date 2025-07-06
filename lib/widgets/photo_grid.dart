@@ -22,6 +22,7 @@ class PhotoGrid extends StatefulWidget {
 }
 
 class PhotoGridState extends State<PhotoGrid> {
+  List<Photo> get allPhotos => _allPhotos;
   final List<Photo> _allPhotos = [];
 
   @override
