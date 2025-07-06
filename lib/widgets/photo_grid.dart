@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:collection/collection.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../models/photo.dart';
 
-class PhotoGrid extends StatefulWidget {
-  final Map<String, List<Photo>> photos;
+class PhotoGrid extends StatelessWidget {
+  final List<Photo> photos;
   final ItemScrollController? itemScrollController;
   final ItemPositionsListener? itemPositionsListener;
 
@@ -18,51 +17,8 @@ class PhotoGrid extends StatefulWidget {
   });
 
   @override
-  PhotoGridState createState() => PhotoGridState();
-}
-
-class PhotoGridState extends State<PhotoGrid> {
-  List<Photo> get allPhotos => _allPhotos;
-  final List<Photo> _allPhotos = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _initializePhotos();
-  }
-
-  @override
-  void didUpdateWidget(PhotoGrid oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!const MapEquality().equals(oldWidget.photos, widget.photos)) {
-      _initializePhotos();
-    }
-  }
-
-  void _initializePhotos() {
-    _allPhotos.clear();
-    widget.photos.values.forEach((photoList) {
-      _allPhotos.addAll(photoList);
-    });
-    _allPhotos.sort((a, b) {
-      if (a.year != null && b.year != null) {
-        return b.year!.compareTo(a.year!);
-      } else if (a.year != null) {
-        return -1;
-      } else if (b.year != null) {
-        return 1;
-      } else {
-        return b.createdAt.compareTo(a.createdAt);
-      }
-    });
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (_allPhotos.isEmpty) {
+    if (photos.isEmpty) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -86,9 +42,9 @@ class PhotoGridState extends State<PhotoGrid> {
     }
 
     return ScrollablePositionedList.builder(
-      itemCount: (_allPhotos.length / 2).ceil(),
-      itemScrollController: widget.itemScrollController,
-      itemPositionsListener: widget.itemPositionsListener,
+      itemCount: (photos.length / 2).ceil(),
+      itemScrollController: itemScrollController,
+      itemPositionsListener: itemPositionsListener,
       itemBuilder: (context, index) {
         final int firstIndex = index * 2;
         final int secondIndex = firstIndex + 1;
@@ -96,16 +52,16 @@ class PhotoGridState extends State<PhotoGrid> {
           children: [
             Expanded(
               child: PhotoCard(
-                photo: _allPhotos[firstIndex],
-                allPhotos: _allPhotos,
+                photo: photos[firstIndex],
+                allPhotos: photos,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: secondIndex < _allPhotos.length
+              child: secondIndex < photos.length
                   ? PhotoCard(
-                      photo: _allPhotos[secondIndex],
-                      allPhotos: _allPhotos,
+                      photo: photos[secondIndex],
+                      allPhotos: photos,
                     )
                   : const SizedBox(),
             ),

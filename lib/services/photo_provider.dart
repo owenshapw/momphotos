@@ -26,53 +26,6 @@ class PhotoProvider with ChangeNotifier {
   List<String> get searchHistory => List.unmodifiable(_searchHistory);
   bool get hasLoaded => _hasLoaded;
 
-  // 按年代分组的照片
-  Map<String, List<Photo>> get photosByDecade {
-    final Map<String, List<Photo>> grouped = {};
-    
-    for (final photo in _filteredPhotos) {
-      final decade = photo.decadeGroup;
-      if (!grouped.containsKey(decade)) {
-        grouped[decade] = [];
-      }
-      grouped[decade]!.add(photo);
-    }
-    
-    // 在每个年代分组内按拍摄日期排序（从近到远）
-    for (final photos in grouped.values) {
-      photos.sort((a, b) {
-        // 优先按拍摄年份排序
-        if (a.year != null && b.year != null) {
-          return b.year!.compareTo(a.year!); // 降序，最新的在前
-        } else if (a.year != null) {
-          return -1; // 有年份的排在前面
-        } else if (b.year != null) {
-          return 1;
-        } else {
-          // 如果都没有年份，按创建时间排序
-          return b.createdAt.compareTo(a.createdAt);
-        }
-      });
-    }
-    
-    // 过滤掉没有照片的年代分组
-    final nonEmptyGrouped = Map<String, List<Photo>>.fromEntries(
-      grouped.entries.where((entry) => entry.value.isNotEmpty),
-    );
-    
-    // 按年代排序
-    final sortedKeys = nonEmptyGrouped.keys.toList()
-      ..sort((a, b) {
-        if (a == '未知年代') return 1;
-        if (b == '未知年代') return -1;
-        return b.compareTo(a); // 降序排列
-      });
-    
-    return Map.fromEntries(
-      sortedKeys.map((key) => MapEntry(key, nonEmptyGrouped[key]!)),
-    );
-  }
-
   // 获取所有标签
   Set<String> get allTags {
     final Set<String> tags = {};
