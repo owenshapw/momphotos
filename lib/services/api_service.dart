@@ -7,6 +7,7 @@ import '../models/user.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthResponse;
 import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
+import 'package:exif/exif.dart';
 import '../services/auth_service.dart';
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
@@ -320,26 +321,46 @@ class ApiService {
         throw Exception('无法解码原始图片');
       }
       
-      // 计算缩略图尺寸，保持宽高比
-      final originalWidth = originalImage.width;
-      final originalHeight = originalImage.height;
-      final maxSize = 1200; // 进一步增加缩略图尺寸，提高清晰度
-      
-      int thumbnailWidth, thumbnailHeight;
-      if (originalWidth > originalHeight) {
-        // 横向图片
-        thumbnailWidth = maxSize;
-        thumbnailHeight = (originalHeight * maxSize / originalWidth).round();
-      } else {
-        // 纵向图片
-        thumbnailHeight = maxSize;
-        thumbnailWidth = (originalWidth * maxSize / originalHeight).round();
+      // 处理EXIF方向信息
+      Map<String, IfdTag>? exifData;
+      try {
+        exifData = await readExifFromBytes(originalBytes);
+      } catch (e) {
+        developer.log('读取EXIF数据失败: $e');
       }
       
-      final thumbnail = img.copyResize(originalImage, width: thumbnailWidth, height: thumbnailHeight, interpolation: img.Interpolation.cubic);
-      final thumbnailBytes = img.encodeJpg(thumbnail, quality: 98); // 进一步提高缩略图质量
-      final thumbFileName =
-          'photos/thumbnails/${random}_${p.basename(imageFile.path)}';
+      // 根据EXIF方向信息旋转图片
+      final correctedImage = _correctImageOrientation(originalImage, exifData);
+      
+      // 固定缩略图尺寸：300x400px，从原图中心截取
+      final targetWidth = 300;
+      final targetHeight = 400;
+      final originalWidth = correctedImage.width;
+      final originalHeight = correctedImage.height;
+      
+      // 计算缩放比例，确保图片能完全覆盖目标尺寸
+      final scaleX = targetWidth / originalWidth;
+      final scaleY = targetHeight / originalHeight;
+      final scale = scaleX > scaleY ? scaleX : scaleY; // 使用较大的缩放比例
+      
+      // 计算缩放后的尺寸
+      final scaledWidth = (originalWidth * scale).round();
+      final scaledHeight = (originalHeight * scale).round();
+      
+      // 缩放图片
+      final scaledImage = img.copyResize(correctedImage, width: scaledWidth, height: scaledHeight, interpolation: img.Interpolation.cubic);
+      
+      // 从中心截取目标尺寸
+      final left = (scaledWidth - targetWidth) ~/ 2;
+      final top = (scaledHeight - targetHeight) ~/ 2;
+      
+      // 截取中心部分
+      final thumbnail = img.copyCrop(scaledImage, x: left, y: top, width: targetWidth, height: targetHeight);
+      final thumbnailBytes = img.encodeJpg(thumbnail, quality: 95);
+      
+      // 生成照片ID（使用UUID格式）
+      final photoId = '${DateTime.now().millisecondsSinceEpoch}_$random';
+      final thumbFileName = 'thumbnails/$photoId.jpg';
       final thumbStorageResponse = await supabase.storage
           .from('photos')
           .uploadBinary(thumbFileName, thumbnailBytes, fileOptions: FileOptions(contentType: 'image/jpeg'));
@@ -464,6 +485,31 @@ class ApiService {
       throw Exception('网络连接失败，请检查网络设置');
     } catch (e) {
       throw Exception('更新错误: $e');
+    }
+  }
+
+  // 处理EXIF方向信息
+  static img.Image _correctImageOrientation(img.Image image, Map<String, IfdTag>? exifData) {
+    if (exifData == null) return image;
+    
+    try {
+      final orientationTag = exifData['Image Orientation'];
+      if (orientationTag == null) return image;
+      
+      final orientation = orientationTag.printable;
+      switch (orientation) {
+        case '3': // 180度旋转
+          return img.copyRotate(image, angle: 180);
+        case '6': // 顺时针90度旋转
+          return img.copyRotate(image, angle: 90);
+        case '8': // 逆时针90度旋转
+          return img.copyRotate(image, angle: 270);
+        default:
+          return image;
+      }
+    } catch (e) {
+      developer.log('EXIF方向处理失败: $e');
+      return image;
     }
   }
 

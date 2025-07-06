@@ -21,7 +21,7 @@ class PhotoGrid extends StatefulWidget {
 class PhotoGridState extends State<PhotoGrid> {
   final List<Photo> _allPhotos = []; // 按时间顺序的所有照片
   final List<Photo> _loadedPhotos = []; // 已加载的照片
-  int _batchSize = 6; // 每次加载6张照片
+  final int _batchSize = 6; // 每次加载6张照片
   bool _isLoading = false;
   bool _hasMorePhotos = true;
   late final ScrollController _scrollController;
@@ -207,7 +207,7 @@ class PhotoGridState extends State<PhotoGrid> {
           ),
         ),
         
-        // 照片网格 - 恢复到前天的GridView设计
+        // 照片网格 - 使用瀑布流布局，保持图片原始比例
         Expanded(
           child: GridView.builder(
             controller: _scrollController,
@@ -216,7 +216,7 @@ class PhotoGridState extends State<PhotoGrid> {
               crossAxisCount: 2,
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
-              childAspectRatio: 0.8, // 恢复到前天的宽高比
+              childAspectRatio: 0.75, // 4:3 比例 (3/4 = 0.75)
             ),
             itemCount: _loadedPhotos.length + (_hasMorePhotos ? 1 : 0),
             itemBuilder: (context, index) {
@@ -277,7 +277,7 @@ class PhotoCard extends StatelessWidget {
             color: Colors.grey[50], // 纯浅色背景
             child: CachedNetworkImage(
               imageUrl: photo.thumbnailUrl ?? photo.url,
-              fit: BoxFit.cover, // 使用cover填满容器，保持正方形
+              fit: BoxFit.cover, // 使用cover填满4:3容器，显示局部区域
               placeholder: (context, url) => Container(
                 color: Colors.grey[50], // 纯浅色背景占位符
               ),
@@ -286,7 +286,7 @@ class PhotoCard extends StatelessWidget {
                 if (url == photo.thumbnailUrl && photo.thumbnailUrl != photo.url) {
                   return CachedNetworkImage(
                     imageUrl: photo.url,
-                    fit: BoxFit.cover, // 使用cover填满容器
+                    fit: BoxFit.cover, // 使用cover填满4:3容器，显示局部区域
                     placeholder: (context, url) => Container(
                       color: Colors.grey[50], // 纯浅色背景占位符
                     ),

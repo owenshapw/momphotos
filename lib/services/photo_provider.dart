@@ -3,7 +3,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import '../models/photo.dart';
 import 'api_service.dart';
-import 'package:http/http.dart' as http;
+
 import '../services/auth_service.dart';
 
 class PhotoProvider with ChangeNotifier {
@@ -155,57 +155,7 @@ class PhotoProvider with ChangeNotifier {
     }
   }
 
-  // 过滤有效的照片（未删除的照片）- 优化版本
-  Future<List<Photo>> _filterValidPhotos(List<Photo> photos) async {
-    final validPhotos = <Photo>[];
-    
-    // 限制并发请求数量，避免过多请求
-    const maxConcurrent = 5;
-    final batches = <List<Photo>>[];
-    
-    for (int i = 0; i < photos.length; i += maxConcurrent) {
-      final end = (i + maxConcurrent < photos.length) ? i + maxConcurrent : photos.length;
-      batches.add(photos.sublist(i, end));
-    }
-    
-    for (final batch in batches) {
-      // 使用并发请求，但限制数量
-      final futures = batch.map((photo) async {
-        try {
-          // 使用更快的HEAD请求检查照片是否存在
-          final response = await http.head(
-            Uri.parse(photo.url),
-            headers: {'Connection': 'keep-alive'},
-          ).timeout(const Duration(seconds: 5));
-          
-          if (response.statusCode == 200) {
-            return photo;
-          }
-        } catch (e) {
-          // 如果图片加载失败，说明照片可能已被删除
-          if (kDebugMode) {
-            debugPrint('照片已删除或无法访问: ${photo.url}');
-          }
-        }
-        return null;
-      });
-      
-      // 等待当前批次完成
-      final results = await Future.wait(futures);
-      
-      // 过滤掉null结果
-      for (final result in results) {
-        if (result != null) {
-          validPhotos.add(result);
-        }
-      }
-      
-      // 短暂延迟，避免请求过于频繁
-      await Future.delayed(const Duration(milliseconds: 100));
-    }
-    
-    return validPhotos;
-  }
+
 
     // 搜索照片
   Future<void> searchPhotos(String query) async {

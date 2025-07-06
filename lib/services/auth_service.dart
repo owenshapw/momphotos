@@ -7,6 +7,8 @@ import 'api_service.dart';
 class AuthService {
   static const String _userKey = 'user';
   static const String _tokenKey = 'token';
+  static const String _appVersionKey = 'app_version';
+  static const String _currentAppVersion = '1.0.1+3'; // 当前应用版本，匹配pubspec.yaml
   
   static User? _currentUser;
   static String? _currentToken;
@@ -25,6 +27,33 @@ class AuthService {
   static Future<void> initialize() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      
+      // 检查是否是新安装或版本更新
+      final savedVersion = prefs.getString(_appVersionKey);
+      final isNewInstall = savedVersion == null;
+      final isVersionUpdate = savedVersion != null && savedVersion != _currentAppVersion;
+      
+      if (isNewInstall || isVersionUpdate) {
+        developer.log('🆕 检测到新安装或版本更新，清除之前的登录状态');
+        developer.log('  保存的版本: $savedVersion');
+        developer.log('  当前版本: $_currentAppVersion');
+        
+        // 清除所有登录信息
+        await prefs.remove(_userKey);
+        await prefs.remove(_tokenKey);
+        _currentUser = null;
+        _currentToken = null;
+        _lastUserId = null;
+        ApiService.clearAuthToken();
+        ApiService.clearCache();
+        
+        // 保存当前版本号
+        await prefs.setString(_appVersionKey, _currentAppVersion);
+        developer.log('✅ 新安装/版本更新处理完成');
+        return;
+      }
+      
+      // 正常加载登录信息
       final userJson = prefs.getString(_userKey);
       final token = prefs.getString(_tokenKey);
       
@@ -96,7 +125,7 @@ class AuthService {
     // 如果是不同用户登录，清除缓存
     if (isDifferentUser) {
       ApiService.clearCache();
-      developer.log('🔄 用户切换，已清除��存');
+      developer.log('🔄 用户切换，已清除缓存');
     } else {
       developer.log('✅ 同一用户，保持缓存');
     }
