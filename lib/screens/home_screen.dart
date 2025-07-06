@@ -16,7 +16,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final GlobalKey<PhotoGridState> _gridKey = GlobalKey<PhotoGridState>();
+  final GlobalKey<PhotoGridContainerState> _gridKey =
+      GlobalKey<PhotoGridContainerState>();
 
   @override
   void initState() {
@@ -57,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: const Icon(Icons.home),
           tooltip: '回到顶部',
           onPressed: () {
-            // This will be handled by the PhotoGridContainer's key
+            _gridKey.currentState?.scrollToTop();
           },
         ),
         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -186,7 +187,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: EdgeInsets.all(16.0),
             child: CustomSearchBar(),
           ),
-          Expanded(child: PhotoGridContainer(gridKey: _gridKey)),
+          Expanded(child: PhotoGridContainer(key: _gridKey)),
         ],
       ),
     );
@@ -194,14 +195,14 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class PhotoGridContainer extends StatefulWidget {
-  final GlobalKey<PhotoGridState> gridKey;
-  const PhotoGridContainer({required this.gridKey, super.key});
+  const PhotoGridContainer({super.key});
 
   @override
   State<PhotoGridContainer> createState() => PhotoGridContainerState();
 }
 
 class PhotoGridContainerState extends State<PhotoGridContainer> {
+  final GlobalKey<PhotoGridState> _photoGridKey = GlobalKey<PhotoGridState>();
   final ItemScrollController itemScrollController = ItemScrollController();
   final ItemPositionsListener itemPositionsListener =
       ItemPositionsListener.create();
@@ -224,7 +225,7 @@ class PhotoGridContainerState extends State<PhotoGridContainer> {
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final gridState = widget.gridKey.currentState;
+      final gridState = _photoGridKey.currentState;
       if (gridState == null || !gridState.mounted) return;
 
       final allPhotos = gridState.allPhotos;
@@ -328,7 +329,7 @@ class PhotoGridContainerState extends State<PhotoGridContainer> {
           }
 
           return PhotoGrid(
-            key: widget.gridKey,
+            key: _photoGridKey,
             photos: photoProvider.photosByDecade,
             itemScrollController: itemScrollController,
             itemPositionsListener: itemPositionsListener,
