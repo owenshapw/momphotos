@@ -123,13 +123,13 @@ class PhotoGridState extends State<PhotoGrid> {
     });
     
     // 立即加载更多照片，不添加延迟
-    final currentCount = _loadedPhotos.length;
-    final remainingPhotos = _allPhotos.skip(currentCount).take(_batchSize).toList();
-    
-    setState(() {
-      _loadedPhotos.addAll(remainingPhotos);
-      _isLoading = false;
-      _hasMorePhotos = _loadedPhotos.length < _allPhotos.length;
+      final currentCount = _loadedPhotos.length;
+      final remainingPhotos = _allPhotos.skip(currentCount).take(_batchSize).toList();
+      
+      setState(() {
+        _loadedPhotos.addAll(remainingPhotos);
+        _isLoading = false;
+        _hasMorePhotos = _loadedPhotos.length < _allPhotos.length;
     });
   }
 
@@ -145,7 +145,7 @@ class PhotoGridState extends State<PhotoGrid> {
   void dispose() {
     // 只有当scrollController是我们自己创建的时候才dispose它
     if (widget.scrollController == null) {
-      _scrollController.dispose();
+    _scrollController.dispose();
     }
     super.dispose();
   }
@@ -178,21 +178,21 @@ class PhotoGridState extends State<PhotoGrid> {
     return Column(
       children: [
         // 照片统计信息
-        Padding(
+            Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
+              child: Row(
+                children: [
               Icon(
                 Icons.photo_library,
                 size: 20,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
+                      color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
                 '已加载 ${_loadedPhotos.length} / ${_allPhotos.length} 张照片',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -202,11 +202,11 @@ class PhotoGridState extends State<PhotoGrid> {
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-            ],
-          ),
-        ),
-        
+                  ),
+                ],
+              ),
+            ),
+            
         // 照片网格 - 使用瀑布流布局，保持图片原始比例
         Expanded(
           child: GridView.builder(
@@ -231,8 +231,8 @@ class PhotoGridState extends State<PhotoGrid> {
               
               final photo = _loadedPhotos[index];
               return PhotoCard(photo: photo, allPhotos: _allPhotos);
-            },
-          ),
+              },
+            ),
         ),
       ],
     );
@@ -275,8 +275,8 @@ class PhotoCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           child: Container(
             color: Colors.grey[50], // 纯浅色背景
-            child: CachedNetworkImage(
-              imageUrl: photo.thumbnailUrl ?? photo.url,
+          child: CachedNetworkImage(
+                imageUrl: photo.thumbnailUrl ?? photo.url,
               fit: BoxFit.cover, // 使用cover填满4:3容器，显示局部区域
               placeholder: (context, url) => Container(
                 color: Colors.grey[50], // 纯浅色背景占位符
@@ -287,13 +287,13 @@ class PhotoCard extends StatelessWidget {
                   return CachedNetworkImage(
                     imageUrl: photo.url,
                     fit: BoxFit.cover, // 使用cover填满4:3容器，显示局部区域
-                    placeholder: (context, url) => Container(
+                placeholder: (context, url) => Container(
                       color: Colors.grey[50], // 纯浅色背景占位符
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: Colors.grey[200],
-                      child: const Center(
-                        child: Icon(
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: Colors.grey[200],
+              child: const Center(
+                child: Icon(
                           Icons.broken_image,
                           color: Colors.grey,
                           size: 24,
@@ -315,7 +315,7 @@ class PhotoCard extends StatelessWidget {
                   child: const Center(
                     child: Icon(
                       Icons.broken_image,
-                      color: Colors.grey,
+                    color: Colors.grey,
                       size: 24,
                     ),
                   ),
@@ -333,7 +333,7 @@ class PhotoCard extends StatelessWidget {
               // 减少内存缓存大小
               memCacheWidth: 1200,
               memCacheHeight: 1200,
-            ),
+                ),
           ),
         ),
       ),

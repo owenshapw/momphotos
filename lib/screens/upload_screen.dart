@@ -190,7 +190,7 @@ class _UploadScreenState extends State<UploadScreen> {
                                       ),
                                     );
                                   },
-                                ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),

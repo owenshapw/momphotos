@@ -148,8 +148,8 @@ Future<void> _preloadData() async {
     // 在后台运行网络连接测试，不阻塞启动
     Future.microtask(() async {
       try {
-        final debugResults = await DebugHelper.testNetworkConnection();
-        DebugHelper.printDebugInfo(debugResults);
+    final debugResults = await DebugHelper.testNetworkConnection();
+    DebugHelper.printDebugInfo(debugResults);
       } catch (e) {
         developer.log('网络测试失败: $e');
       }
@@ -157,14 +157,14 @@ Future<void> _preloadData() async {
     
     // 在后台预热健康检查端点，不阻塞启动
     Future.microtask(() async {
-      try {
-        final response = await http.get(
-          Uri.parse('http://192.168.14.64:8080/health'),
+    try {
+      final response = await http.get(
+        Uri.parse('http://192.168.14.64:8080/health'),
         ).timeout(const Duration(seconds: 3));
-        developer.log('API预热成功: ${response.statusCode}');
-      } catch (e) {
-        developer.log('API预热失败: $e');
-      }
+      developer.log('API预热成功: ${response.statusCode}');
+    } catch (e) {
+      developer.log('API预热失败: $e');
+    }
     });
   } catch (e) {
     // 静默处理错误，不影响应用启动

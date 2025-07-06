@@ -86,9 +86,9 @@ class PhotoProvider with ChangeNotifier {
     // 检查用户是否发生变化
     final currentUserId = AuthService.currentUser?.id;
     if (currentUserId != null && _lastLoadedUserId != currentUserId) {
-      developer.log('🔄 检测到用户切换，重置PhotoProvider状态');
-      developer.log('  上次加载用户ID: $_lastLoadedUserId');
-      developer.log('  当前用户ID: $currentUserId');
+          developer.log('🔄 检测到用户切换，重置PhotoProvider状态');
+    developer.log('  上次加载用户ID: $_lastLoadedUserId');
+    developer.log('  当前用户ID: $currentUserId');
       reset();
       _lastLoadedUserId = currentUserId;
       forceRefresh = true; // 强制刷新
@@ -112,7 +112,7 @@ class PhotoProvider with ChangeNotifier {
         final allPhotos = await ApiService.getPhotos(forceRefresh: forceRefresh);
         
         // 直接使用API返回的照片，不再进行额外的验证（提高速度）
-        _photos = allPhotos;
+          _photos = allPhotos;
         
         // 按拍摄日期排序（从近到远）
         _photos.sort((a, b) {

@@ -364,10 +364,10 @@ class _BatchUploadScreenState extends State<BatchUploadScreen> {
                                         )
                                       : Image.file(
                                           File(_selectedImages[index].path),
-                                          fit: BoxFit.cover,
-                                          width: double.infinity,
-                                          height: double.infinity,
-                                        ),
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                  ),
                                 ),
                               ),
                               Positioned(
