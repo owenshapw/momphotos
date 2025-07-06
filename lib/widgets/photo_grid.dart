@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:collection/collection.dart';
 import '../models/photo.dart';
 // import 'package:http/http.dart' as http; // 已移除未使用
 
@@ -41,19 +42,26 @@ class PhotoGridState extends State<PhotoGrid> {
     super.didUpdateWidget(oldWidget);
     // 只有当照片数据真正发生变化时才重新初始化
     if (oldWidget.photos != widget.photos) {
-      // 检查是否是相同照片的更新（比如编辑后的更新）
       final oldPhotoIds = _getAllPhotoIds(oldWidget.photos);
       final newPhotoIds = _getAllPhotoIds(widget.photos);
-      
-      // 如果照片ID集合相同，说明只是内容更新，保持当前状态
-      if (oldPhotoIds.length == newPhotoIds.length && 
-          oldPhotoIds.every((id) => newPhotoIds.contains(id))) {
-        // 照片内容更新，保持当前状态
-        return;
+
+      // 检查是添加还是删除
+      if (newPhotoIds.length > oldPhotoIds.length) {
+        // 添加了新照片，重新初始化以确保排序正确
+        _initializePhotos();
+      } else if (newPhotoIds.length < oldPhotoIds.length) {
+        // 删除了照片，只移除对应的照片，保持滚动位置
+        final removedIds = oldPhotoIds.where((id) => !newPhotoIds.contains(id));
+        setState(() {
+          _allPhotos.removeWhere((p) => removedIds.contains(p.id));
+          _loadedPhotos.removeWhere((p) => removedIds.contains(p.id));
+          _hasMorePhotos = _loadedPhotos.length < _allPhotos.length;
+        });
+      } else if (!const SetEquality().equals(oldPhotoIds, newPhotoIds)) {
+        // 照片ID不同但数量相同（例如，一次删除并一次添加），完全重新初始化
+        _initializePhotos();
       }
-      
-      // 照片数量或ID发生变化，重新初始化
-      _initializePhotos();
+      // 如果照片ID和数量都相同，说明只是内容更新（如编辑），不需要操作
     }
   }
 
@@ -117,20 +125,24 @@ class PhotoGridState extends State<PhotoGrid> {
 
   void _loadMorePhotos() {
     if (_isLoading || !_hasMorePhotos) return;
-    
-    setState(() {
-      _isLoading = true;
-    });
-    
+
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
     // 立即加载更多照片，不添加延迟
-      final currentCount = _loadedPhotos.length;
-      final remainingPhotos = _allPhotos.skip(currentCount).take(_batchSize).toList();
-      
+    final currentCount = _loadedPhotos.length;
+    final remainingPhotos = _allPhotos.skip(currentCount).take(_batchSize).toList();
+
+    if (mounted) {
       setState(() {
         _loadedPhotos.addAll(remainingPhotos);
         _isLoading = false;
         _hasMorePhotos = _loadedPhotos.length < _allPhotos.length;
-    });
+      });
+    }
   }
 
   void scrollToTop() {

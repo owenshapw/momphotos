@@ -457,8 +457,8 @@ def get_photos():
         user_response = supabase.table('users').select('id, username').eq('id', user_id).execute()
         print(f"👤 用户查询结果: {user_response.data}")
         
-        # 查询照片
-        response = supabase.table('photos').select('*').eq('user_id', user_id).execute()
+        # 查询照片，并按创建时间降序排序
+        response = supabase.table('photos').select('*').eq('user_id', user_id).order('created_at', desc=True).execute()
         print(f"📸 照片查询结果: 找到 {len(response.data)} 张照片")
         
         # 如果没有照片，检查数据库中是否有其他用户的照片

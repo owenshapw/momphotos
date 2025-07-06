@@ -387,6 +387,8 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        // 清除缓存，以便下次能获取到最新列表
+        clearCache();
         return Photo.fromJson(data);
       } else {
         final errorData = json.decode(response.body);
