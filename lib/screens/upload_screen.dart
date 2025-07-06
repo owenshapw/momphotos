@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:dropdown_search/dropdown_search.dart';
 import '../services/photo_provider.dart';
 
 class UploadScreen extends StatefulWidget {
@@ -253,31 +252,23 @@ class _UploadScreenState extends State<UploadScreen> {
                         Expanded(
                           child: Consumer<PhotoProvider>(
                             builder: (context, photoProvider, child) {
-                              return DropdownSearch<String>(
-                                popupProps: const PopupProps.menu(
-                                  showSearchBox: true,
-                                  searchFieldProps: TextFieldProps(
-                                    decoration: InputDecoration(
-                                      hintText: '搜索已有标签...',
-                                    ),
-                                  ),
+                              return DropdownButtonFormField<String>(
+                                value: null,
+                                hint: const Text('选择已有标签'),
+                                decoration: const InputDecoration(
+                                  border: OutlineInputBorder(),
                                 ),
-                                items: photoProvider.allTags.toList(),
+                                items: photoProvider.allTags.map((tag) {
+                                  return DropdownMenuItem<String>(
+                                    value: tag,
+                                    child: Text(tag),
+                                  );
+                                }).toList(),
                                 onChanged: (value) {
                                   if (value != null) {
                                     _addTag(value);
                                   }
                                 },
-                                selectedItem: null,
-                                dropdownButtonProps: const DropdownButtonProps(
-                                  icon: Icon(Icons.arrow_drop_down),
-                                ),
-                                dropdownDecoratorProps: DropDownDecoratorProps(
-                                  dropdownSearchDecoration: InputDecoration(
-                                    hintText: '选择已有标签',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                ),
                               );
                             },
                           ),
@@ -367,31 +358,24 @@ class _UploadScreenState extends State<UploadScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    DropdownSearch<int>(
-                      popupProps: const PopupProps.menu(
-                        showSearchBox: true,
-                        searchFieldProps: TextFieldProps(
-                          decoration: InputDecoration(
-                            hintText: '搜索年代...',
-                          ),
-                        ),
+                    DropdownButtonFormField<int>(
+                      value: _selectedYear,
+                      hint: const Text('选择拍摄年代（可选）'),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
                       ),
-                      items: List.generate(100, (index) => 2024 - index),
+                      items: List.generate(100, (index) {
+                        final year = 2024 - index;
+                        return DropdownMenuItem<int>(
+                          value: year,
+                          child: Text('$year年'),
+                        );
+                      }),
                       onChanged: (value) {
                         setState(() {
                           _selectedYear = value;
                         });
                       },
-                      selectedItem: _selectedYear,
-                      dropdownButtonProps: const DropdownButtonProps(
-                        icon: Icon(Icons.arrow_drop_down),
-                      ),
-                      dropdownDecoratorProps: DropDownDecoratorProps(
-                        dropdownSearchDecoration: InputDecoration(
-                          hintText: '选择拍摄年代（可选）',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
                     ),
                   ],
                 ),

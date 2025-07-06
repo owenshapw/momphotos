@@ -104,12 +104,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 
                 if (confirmed == true) {
                   final photoProvider = context.read<PhotoProvider>();
-                  final navigatorContext = context;
+                  final navigator = GoRouter.of(context);
                   await AuthService.logout();
                   if (!mounted) return;
                   photoProvider.reset();
                   if (mounted) {
-                    navigatorContext.go('/login');
+                    navigator.go('/login');
                   }
                 }
               } else if (value == 'delete_account') {
