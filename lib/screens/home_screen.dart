@@ -100,12 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
                 if (confirmed == true) {
-                  final photoProvider = Provider.of<PhotoProvider>(context, listen: false);
-                  final goRouter = GoRouter.of(context);
-                  await AuthService.logout();
-                  if (!mounted) return;
-                  photoProvider.reset();
-                  goRouter.go('/login');
+                  await _logout();
                 }
               } else if (value == 'delete_account') {
                 final confirmed = await showDialog<bool>(
@@ -249,6 +244,17 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  Future<void> _logout() async {
+    if (!mounted) return;
+    final photoProvider = context.read<PhotoProvider>();
+    final goRouter = GoRouter.of(context);
+    await AuthService.logout();
+    if (!mounted) return;
+    photoProvider.reset();
+    goRouter.go('/login');
+  }
+
   void _scrollToLastViewedPhoto(PhotoProvider photoProvider) {
     final photoId = photoProvider.lastViewedPhotoId;
     if (photoId == null) {
