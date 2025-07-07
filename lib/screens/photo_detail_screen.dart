@@ -201,11 +201,19 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
             icon: const Icon(Icons.edit, color: Colors.white),
             onPressed: () async {
               final photoProvider = Provider.of<PhotoProvider>(context, listen: false);
-              await context.push('/photo-edit', extra: {
+              final result = await context.push('/photo-edit', extra: {
                 'photo': allPhotos[_currentIndex],
               });
-              if (!mounted) return;
-              await photoProvider.loadPhotos(forceRefresh: true);
+
+              // 编辑完成后，我们不再需要强制刷新整个列表
+              // PhotoProvider 已经通过 updatePhotoDetails 在本地更新了数据
+              // 我们只需要确保UI重新渲染即可
+              if (result != null && mounted) {
+                setState(() {
+                  // 可以在这里处理从编辑页返回的特定逻辑（如果需要）
+                  // 例如，如果编辑页返回了更新后的photo对象
+                });
+              }
             },
           ),
         ],
@@ -662,7 +670,6 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
   }
 
   Future<void> _deletePhoto(Photo photo) async {
-    // 1. 弹出确认对话框
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -681,27 +688,45 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
         ],
       ),
     );
+
     if (confirmed != true) return;
 
-    // 提前获取Provider对象，彻底规避async gap
-    // ignore: use_build_context_synchronously
     final photoProvider = Provider.of<PhotoProvider>(context, listen: false);
+    final initialIndex = _currentIndex;
+
     try {
       await photoProvider.deletePhoto(photo.id);
       if (!mounted) return;
-      // 只在用户ID变化时才会真正重置，否则只刷新
-      await photoProvider.loadPhotos(forceRefresh: true);
-      if (!mounted) return;
-      setState(() {
-        allPhotos = [];
-      });
-      if (!mounted) return;
-      context.pop({'scrollToId': null});
-      return;
+
+      // 更新本地的照片列表
+      final updatedPhotos = allPhotos.where((p) => p.id != photo.id).toList();
+
+      if (updatedPhotos.isEmpty) {
+        // 如果没有照片了，返回主页
+        context.pop({'scrollToId': null});
+      } else {
+        // 计算下一个要显示的索引
+        final nextIndex = initialIndex >= updatedPhotos.length
+            ? updatedPhotos.length - 1
+            : initialIndex;
+
+        setState(() {
+          allPhotos = updatedPhotos;
+          _currentIndex = nextIndex;
+          // 更新PageController以反映变化，但不要动画
+          _pageController.jumpToPage(_currentIndex);
+          // 更新最后查看的照片ID
+          context.read<PhotoProvider>().lastViewedPhotoId = allPhotos[_currentIndex].id;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('照片已删除')),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败: [31m${e.toString()}[0m')),
+          SnackBar(content: Text('删除失败: ${e.toString()}')),
         );
       }
     }

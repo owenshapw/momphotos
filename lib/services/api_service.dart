@@ -443,8 +443,8 @@ class ApiService {
       ).timeout(timeout);
 
       if (response.statusCode == 200) {
-        // 清除缓存，因为照片列表已更改
-        clearCache();
+        // 由Provider在本地更新列表，不再清除整个缓存
+        // clearCache();
       } else if (response.statusCode == 401) {
         developer.log('❌ Token失效，deletePhoto返回401');
         throw Exception('401');
@@ -519,8 +519,8 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        // 更新成功后，清除缓存以确保下次获取的是最新数据
-        clearCache();
+        // 更新成功后，不再清除整个缓存，而是由Provider在本地更新
+        // clearCache(); 
         return Photo.fromJson(data);
       } else if (response.statusCode == 401) {
         developer.log('❌ Token失效，updatePhotoDetails返回401');
