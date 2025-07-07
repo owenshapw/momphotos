@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-import '../models/photo.dart';
 import '../services/photo_provider.dart';
 import '../services/auth_service.dart';
 import '../widgets/photo_grid.dart';
@@ -19,7 +18,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final ItemScrollController itemScrollController = ItemScrollController();
   final ItemPositionsListener itemPositionsListener =
       ItemPositionsListener.create();
-  bool _hasScrolledToLastViewed = false;
 
   @override
   void initState() {
@@ -29,13 +27,13 @@ class _HomeScreenState extends State<HomeScreen> {
       if (AuthService.isLoggedIn && !photoProvider.hasLoaded) {
         photoProvider.loadPhotos(forceRefresh: false);
       }
+      _scrollToLastViewedPhoto(photoProvider);
     });
 
     itemPositionsListener.itemPositions.addListener(() {
       final photoProvider = context.read<PhotoProvider>();
-      if (!_hasScrolledToLastViewed && photoProvider.lastViewedPhotoId != null) {
+      if (photoProvider.lastViewedPhotoId != null) {
         _scrollToLastViewedPhoto(photoProvider);
-        _hasScrolledToLastViewed = true;
       }
     });
   }
@@ -102,12 +100,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
                 if (confirmed == true) {
-                  final photoProvider = context.read<PhotoProvider>();
-                  final navigator = GoRouter.of(context);
+                  final photoProvider = Provider.of<PhotoProvider>(context, listen: false);
+                  final goRouter = GoRouter.of(context);
                   await AuthService.logout();
                   if (!mounted) return;
                   photoProvider.reset();
-                  if (mounted) navigator.go('/login');
+                  goRouter.go('/login');
                 }
               } else if (value == 'delete_account') {
                 final confirmed = await showDialog<bool>(
