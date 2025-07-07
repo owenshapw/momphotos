@@ -31,9 +31,21 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    super.dispose();
+  void _scrollToPhoto(String photoId) {
+    final photos = context.read<PhotoProvider>().filteredPhotos;
+    final index = photos.indexWhere((p) => p.id == photoId);
+
+    if (index != -1) {
+      final rowIndex = index ~/ 2;
+      if (itemScrollController.isAttached) {
+        itemScrollController.scrollTo(
+          index: rowIndex,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+          alignment: 0.5, // 滚动到屏幕中间
+        );
+      }
+    }
   }
 
   Future<void> _deleteAccount() async {
@@ -59,12 +71,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final photoProvider = context.watch<PhotoProvider>();
-
-    // 关键修复：在build方法中检查是否需要滚动
-    // 这确保了从详情页返回时，可以正确触发滚动
-    if (photoProvider.lastViewedPhotoId != null) {
-      _scrollToLastViewedPhoto(photoProvider);
-    }
 
     return Scaffold(
       appBar: AppBar(
@@ -232,7 +238,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.photo_library_outlined, size: 80, color: Colors.grey[400]),
+                            Image.asset(
+                              'assets/icon/launch_splash.png',
+                              width: 150,
+                              height: 150,
+                            ),
                             const SizedBox(height: 24),
                             Text(
                               '暂无照片',
@@ -264,6 +274,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     photos: photos,
                     itemScrollController: itemScrollController,
                     itemPositionsListener: itemPositionsListener,
+                    onPhotoReturned: (photoId) {
+                      _scrollToPhoto(photoId);
+                    },
                   );
                 },
               ),

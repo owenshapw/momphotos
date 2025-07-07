@@ -1,44 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../models/photo.dart';
+import '../services/photo_provider.dart';
 
 class PhotoGrid extends StatelessWidget {
   final List<Photo> photos;
   final ItemScrollController? itemScrollController;
   final ItemPositionsListener? itemPositionsListener;
+  final void Function(String) onPhotoReturned;
 
   const PhotoGrid({
     super.key,
     required this.photos,
     this.itemScrollController,
     this.itemPositionsListener,
+    required this.onPhotoReturned,
   });
 
   @override
   Widget build(BuildContext context) {
     if (photos.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.photo_library_outlined,
-              size: 64,
-              color: Colors.grey,
-            ),
-            SizedBox(height: 16),
-            Text(
-              '暂无照片',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey,
-              ),
-            ),
-          ],
-        ),
-      );
+      // 空状态已移至 HomeScreen，此处保留一个简单的备用
+      return const Center(child: Text('没有照片可显示'));
     }
 
     return Padding(
@@ -53,6 +39,7 @@ class PhotoGrid extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Padding(
@@ -60,6 +47,12 @@ class PhotoGrid extends StatelessWidget {
                     child: PhotoCard(
                       photo: photos[firstIndex],
                       allPhotos: photos,
+                      onTap: () {
+                        context.push('/photo-detail', extra: {
+                          'photo': photos[firstIndex],
+                          'photos': photos,
+                        }).then((_) => onPhotoReturned(photos[firstIndex].id));
+                      },
                     ),
                   ),
                 ),
@@ -71,6 +64,12 @@ class PhotoGrid extends StatelessWidget {
                           child: PhotoCard(
                             photo: photos[secondIndex],
                             allPhotos: photos,
+                            onTap: () {
+                              context.push('/photo-detail', extra: {
+                                'photo': photos[secondIndex],
+                                'photos': photos,
+                              }).then((_) => onPhotoReturned(photos[secondIndex].id));
+                            },
                           ),
                         )
                       : const SizedBox(),
@@ -87,26 +86,20 @@ class PhotoGrid extends StatelessWidget {
 class PhotoCard extends StatelessWidget {
   final Photo photo;
   final List<Photo> allPhotos;
+  final VoidCallback onTap;
 
   const PhotoCard({
     super.key,
     required this.photo,
     required this.allPhotos,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        if (context.mounted) {
-          context.push('/photo-detail', extra: {
-            'photo': photo,
-            'photos': allPhotos,
-          });
-        }
-      },
+      onTap: onTap,
       child: Container(
-
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
@@ -127,53 +120,22 @@ class PhotoCard extends StatelessWidget {
               placeholder: (context, url) => Container(
                 color: Colors.grey[50],
               ),
-              errorWidget: (context, url, error) {
-                if (url == photo.thumbnailUrl &&
-                    photo.thumbnailUrl != photo.url) {
-                  return CachedNetworkImage(
-                    imageUrl: photo.url,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: Colors.grey[50],
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: Colors.grey[200],
-                      child: const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          color: Colors.grey,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                    httpHeaders: const {
-                      'User-Agent': 'Mozilla/5.0 (compatible; Flutter Web)',
-                    },
-                    cacheKey: '${photo.id}_original',
-                    maxWidthDiskCache: 1200,
-                    maxHeightDiskCache: 1200,
-                  );
-                }
-
-                return Container(
-                  color: Colors.grey[200],
-                  child: const Center(
-                    child: Icon(
-                      Icons.broken_image,
-                      color: Colors.grey,
-                      size: 24,
-                    ),
+              errorWidget: (context, url, error) => Container(
+                color: Colors.grey[200],
+                child: const Center(
+                  child: Icon(
+                    Icons.broken_image,
+                    color: Colors.grey,
+                    size: 24,
                   ),
-                );
-              },
+                ),
+              ),
               httpHeaders: const {
                 'User-Agent': 'Mozilla/5.0 (compatible; Flutter Web)',
               },
               cacheKey: '${photo.id}_thumb',
-              maxWidthDiskCache: 1200,
-              maxHeightDiskCache: 1200,
-              memCacheWidth: 1200,
-              memCacheHeight: 1200,
+              memCacheWidth: 600, // 优化内存缓存大小
+              memCacheHeight: 800,
             ),
           ),
         ),
