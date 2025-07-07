@@ -293,11 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final photos = photoProvider.filteredPhotos;
     final index = photos.indexWhere((p) => p.id == photoId);
 
-    // 无论是否找到，都清除标记，避免不必要的滚动
-    photoProvider.lastViewedPhotoId = null;
-
     if (index != -1) {
-      // 计算在瀑布流中的行索引（假设每行2列）
       final rowIndex = index ~/ 2;
       
       // 使用addPostFrameCallback确保在UI渲染完成后再滚动
@@ -309,8 +305,13 @@ class _HomeScreenState extends State<HomeScreen> {
             curve: Curves.easeInOut,
             alignment: 0.5, // 滚动到屏幕中间，提供更好的上下文
           );
+          // 关键修复：只有在滚动指令成功发出后，才清除标记
+          photoProvider.lastViewedPhotoId = null;
         }
       });
+    } else {
+      // 如果在当前列表中找不到照片，也清除标记，避免无效循环
+      photoProvider.lastViewedPhotoId = null;
     }
   }
 

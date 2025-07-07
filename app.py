@@ -438,7 +438,7 @@ def reset_password():
 def get_photos():
     """获取照片列表（只返回当前用户的照片）"""
     if not supabase:
-        return jsonify([]) # 返回空列表而非测试数据
+        return jsonify([])
     
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
@@ -449,22 +449,12 @@ def get_photos():
         return jsonify({'error': 'token无效或已过期'}), 401
     user_id = payload['user_id']
     
-    # 添加调试信息
-    print(f"🔍 获取照片 - 用户ID: {user_id} (类型: {type(user_id)})")
+    print(f"🔍 获取照片 - 用户ID: {user_id}")
     
     try:
-        # 先检查用户是否存在
-        user_response = supabase.table('users').select('id, username').eq('id', user_id).execute()
-        print(f"👤 用户查询结果: {user_response.data}")
-        
         # 查询照片，并按创建时间降序排序
         response = supabase.table('photos').select('*').eq('user_id', user_id).order('created_at', desc=True).execute()
-        print(f"📸 照片查询结果: 找到 {len(response.data)} 张照片")
-        
-        # 如果没有照片，检查数据库中是否有其他用户的照片
-        if not response.data:
-            all_photos = supabase.table('photos').select('user_id, count').execute()
-            print(f"📊 数据库中所有照片统计: {all_photos.data}")
+        print(f"📸 照片查询结果: 为用户 {user_id} 找到 {len(response.data)} 张照片")
         
         return jsonify(response.data)
     except Exception as e:
