@@ -8,8 +8,6 @@ import '../services/auth_service.dart';
 import '../widgets/photo_grid.dart';
 import '../widgets/search_bar.dart';
 import '../models/photo.dart';
-import '../screens/upload_screen.dart';
-import '../screens/batch_upload_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -142,27 +140,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final photoProvider = context.watch<PhotoProvider>();
-    final photos = photoProvider.filteredPhotos;
-
-    // 1. 定义打开详情页的方法，带参数跳转并处理返回
-    void _openPhotoDetail(Photo photo, List<Photo> photos) async {
-      final result = await context.push('/photo-detail', extra: {
-        'photo': photo,
-        'photos': photos,
-      });
-      if (result is Map && result['scrollToId'] != null) {
-        final scrollToId = result['scrollToId'];
-        if (scrollToId != null) {
-          // 自动滚动到目标照片
-          final index = photos.indexWhere((p) => p.id == scrollToId);
-          if (index != -1) {
-            itemScrollController.scrollTo(index: index, duration: const Duration(milliseconds: 400));
-          }
-        }
-      }
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: IconButton(
@@ -264,10 +241,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async {
-                await photoProvider.loadPhotos(forceRefresh: true);
+                await context.read<PhotoProvider>().loadPhotos(forceRefresh: true);
               },
               child: Builder(
                 builder: (context) {
+                  final photoProvider = context.watch<PhotoProvider>();
+                  final photos = photoProvider.filteredPhotos;
+
                   if (photoProvider.isLoading && !photoProvider.hasLoaded) {
                     return const Center(
                       child: Column(
@@ -320,8 +300,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     );
                   }
 
-                  final photos = photoProvider.filteredPhotos;
-
                   if (photos.isEmpty && photoProvider.hasLoaded) {
                     return Container(
                       color: const Color(0xFFF4F7F6), // mom.png底色
@@ -347,12 +325,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     );
                   }
 
-                  // 2. 传递_openPhotoDetail给PhotoGrid，点击缩略图时调用
+                  // 1. 定义打开详情页的方法，带参数跳转并处理返回
+                  void openPhotoDetail(Photo photo, List<Photo> photos) async {
+                    final result = await context.push('/photo-detail', extra: {
+                      'photo': photo,
+                      'photos': photos,
+                    });
+                    if (result is Map && result['scrollToId'] != null) {
+                      final scrollToId = result['scrollToId'];
+                      if (scrollToId != null) {
+                        // 自动滚动到目标照片
+                        final index = photos.indexWhere((p) => p.id == scrollToId);
+                        if (index != -1) {
+                          itemScrollController.scrollTo(index: index, duration: const Duration(milliseconds: 400));
+                        }
+                      }
+                    }
+                  }
+
+                  // 2. 传递openPhotoDetail给PhotoGrid，点击缩略图时调用
                   return PhotoGrid(
                     photos: photos,
                     itemScrollController: itemScrollController,
                     itemPositionsListener: itemPositionsListener,
-                    onPhotoTap: (photo) => _openPhotoDetail(photo, photos), // 传递点击回调
+                    onPhotoTap: (photo) => openPhotoDetail(photo, photos), // 传递点击回调
                   );
                 },
               ),

@@ -81,24 +81,21 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
             ? null
             : _descriptionController.text.trim(),
       );
-
-      // 保存成功后强制刷新照片列表，确保瀑布流数据同步
+      if (!mounted) return;
       await context.read<PhotoProvider>().loadPhotos(forceRefresh: true);
       if (!mounted) return;
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('保存成功！')),
-        );
-        
-        final result = await context.push('/photo-detail', extra: {'scrollToId': allPhotos[_currentIndex].id});
-        if (result != null && result is Map && result['scrollToId'] != null) {
-          final scrollToId = result['scrollToId'];
-          final photos = context.read<PhotoProvider>().photos;
-          final index = photos.indexWhere((p) => p.id == scrollToId);
-          if (index != -1 && itemScrollController.isAttached) {
-            itemScrollController.scrollTo(index: index ~/ 2, duration: Duration(milliseconds: 300));
-          }
+      final photos = Provider.of<PhotoProvider>(context, listen: false).photos;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('保存成功！')),
+      );
+      
+      final result = await context.push('/photo-detail', extra: {'scrollToId': allPhotos[_currentIndex].id});
+      if (result != null && result is Map && result['scrollToId'] != null) {
+        final scrollToId = result['scrollToId'];
+        final index = photos.indexWhere((p) => p.id == scrollToId);
+        if (index != -1 && itemScrollController.isAttached) {
+          itemScrollController.scrollTo(index: index ~/ 2, duration: Duration(milliseconds: 300));
         }
       }
     } catch (e) {
@@ -463,36 +460,6 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _deletePhoto(Photo photo) async {
-    final deletedIndex = _currentIndex;
-    try {
-      await context.read<PhotoProvider>().deletePhoto(photo.id);
-      final newPhotos = List<Photo>.from(allPhotos)..removeAt(deletedIndex);
-
-      if (newPhotos.isEmpty) {
-        setState(() {
-          allPhotos = [];
-        });
-        return;
-      }
-
-      int nextIndex = deletedIndex;
-      if (nextIndex >= newPhotos.length) {
-        nextIndex = newPhotos.length - 1;
-      }
-      setState(() {
-        allPhotos = newPhotos;
-        _currentIndex = nextIndex;
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败: $e')),
-        );
-      }
-    }
   }
 
   @override

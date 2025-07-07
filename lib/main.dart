@@ -98,28 +98,24 @@ final _router = GoRouter(
     if (state.matchedLocation == '/splash') {
       return null;
     }
-    
-    // 简单的重定向逻辑，可以根据需要扩展
-    final loggedIn = AuthService.isLoggedIn;
+    // 响应式登录状态
+    final loggedIn = AuthService.loginState.value;
     final publicRoutes = [
       '/login',
-      '/register', 
-      '/reset-password', 
+      '/register',
+      '/reset-password',
       '/forgot-password'
     ];
     final isPublicRoute = publicRoutes.contains(state.matchedLocation);
-
-    // 如果用户未登录，且访问的不是公开路由，则重定向到登录页
     if (!loggedIn && !isPublicRoute) {
       return '/login';
     }
-    // 如果用户已登录，但尝试访问登录或注册页，则重定向到主页
     if (loggedIn && (state.matchedLocation == '/login' || state.matchedLocation == '/register')) {
       return '/';
     }
-    
-    return null; // 无需重定向
+    return null;
   },
+  refreshListenable: AuthService.loginState, // 关键：让 GoRouter 响应登录状态变化
 );
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -175,37 +171,38 @@ Future<void> _preloadData() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) {
-        final provider = PhotoProvider();
-        // 如果用户已登录，立即加载照片
-        if (AuthService.isLoggedIn) {
-          // 延迟加载，确保Provider已创建
-          Future.microtask(() async {
-            // 使用缓存加载，提高速度
-            await provider.loadPhotos(forceRefresh: false);
-          });
-        }
-        return provider;
-      },
-      // 3. 使用MaterialApp.router
-      child: MaterialApp.router(
-        key: navigatorKey,
-        routerConfig: _router,
-        title: '妈妈的照片',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF2196F3),
-            brightness: Brightness.light,
+    // 用 ValueListenableBuilder 包裹，确保 MaterialApp.router 响应登录状态变化
+    return ValueListenableBuilder<bool>(
+      valueListenable: AuthService.loginState,
+      builder: (context, loggedIn, child) {
+        return ChangeNotifierProvider(
+          create: (context) {
+            final provider = PhotoProvider();
+            if (loggedIn) {
+              Future.microtask(() async {
+                await provider.loadPhotos(forceRefresh: false);
+              });
+            }
+            return provider;
+          },
+          child: MaterialApp.router(
+            key: navigatorKey,
+            routerConfig: _router,
+            title: '妈妈的照片',
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFF2196F3),
+                brightness: Brightness.light,
+              ),
+              useMaterial3: true,
+              fontFamily: 'Roboto',
+            ),
+            debugShowCheckedModeBanner: false,
           ),
-          useMaterial3: true,
-          fontFamily: 'Roboto',
-        ),
-        debugShowCheckedModeBanner: false,
-      ),
+        );
+      },
     );
   }
 }

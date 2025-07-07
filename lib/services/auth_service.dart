@@ -1,8 +1,12 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart'; // 修复 ValueNotifier 未导入
 import '../models/user.dart';
 import 'api_service.dart';
+import 'package:provider/provider.dart';
+import '../services/photo_provider.dart';
+import '../main.dart';
 
 class AuthService {
   static const String _userKey = 'user';
@@ -15,13 +19,27 @@ class AuthService {
   static String? _lastUserId; // 跟踪上次登录的用户ID
 
   // 获取当前用户
-  static User? get currentUser => _currentUser;
-  
+  static User? get currentUser {
+    developer.log('[AuthService] get currentUser: \\${_currentUser?.username}');
+    return _currentUser;
+  }
   // 获取当前token
-  static String? get currentToken => _currentToken;
-  
+  static String? get currentToken {
+    developer.log('[AuthService] get currentToken: \\${_currentToken?.substring(0, 8) ?? 'null'}');
+    return _currentToken;
+  }
   // 检查是否已登录
-  static bool get isLoggedIn => _currentUser != null && _currentToken != null;
+  static bool get isLoggedIn {
+    developer.log('[AuthService] isLoggedIn: user=\\${_currentUser?.username}, token=\\${_currentToken != null}');
+    return _currentUser != null && _currentToken != null;
+  }
+
+  // 响应式登录状态
+  static final ValueNotifier<bool> loginState = ValueNotifier(isLoggedIn);
+
+  static void _notifyLoginState() {
+    loginState.value = isLoggedIn;
+  }
 
   // 初始化认证服务（从本地存储加载用户信息）
   static Future<void> initialize() async {
@@ -49,6 +67,7 @@ class AuthService {
         
         // 保存当前版本号
         await prefs.setString(_appVersionKey, _currentAppVersion);
+        _notifyLoginState();
         developer.log('✅ 新安装/版本更新处理完成');
         return;
       }
@@ -62,10 +81,11 @@ class AuthService {
         _currentToken = token;
         _lastUserId = _currentUser!.id; // 设置最后登录的用户ID
         ApiService.setAuthToken(token);
-        developer.log('🔐 自动登录用户: ${_currentUser!.username} (ID: ${_currentUser!.id})');
+        developer.log('🔐 自动登录用户: [1m${_currentUser!.username}[0m (ID: ${_currentUser!.id})');
       } else {
         developer.log('🔐 没有找到已保存的登录信息');
       }
+      _notifyLoginState();
     } catch (e) {
       developer.log('❌ 加载登录信息失败: $e');
       // 如果加载失败，清除本地存储
@@ -75,6 +95,7 @@ class AuthService {
 
   // 保存用户信息到本地存储
   static Future<void> _saveUserData(User user, String token) async {
+    developer.log('[AuthService] _saveUserData: user=\${user.username}, token=\${token.substring(0, 8)}');
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_userKey, json.encode(user.toJson()));
     await prefs.setString(_tokenKey, token);
@@ -83,6 +104,7 @@ class AuthService {
     _currentToken = token;
     _lastUserId = user.id; // 更新最后登录的用户ID
     ApiService.setAuthToken(token);
+    _notifyLoginState();
   }
 
   // 用户注册
@@ -98,6 +120,11 @@ class AuthService {
     );
     // 保存用户信息
     await _saveUserData(response.user, response.token);
+    // 登录后强制刷新Provider照片
+    if (navigatorKey.currentContext != null) {
+      final provider = navigatorKey.currentContext!.read<PhotoProvider>();
+      await provider.resetAndReload();
+    }
     return response;
   }
 
@@ -130,29 +157,35 @@ class AuthService {
       developer.log('✅ 同一用户，保持缓存');
     }
     
+    // 登录后强制刷新Provider照片
+    if (navigatorKey.currentContext != null) {
+      final provider = navigatorKey.currentContext!.read<PhotoProvider>();
+      await provider.resetAndReload();
+    }
+    
     return response;
   }
 
   // 用户登出
   static Future<void> logout() async {
+    developer.log('[AuthService] logout() called');
     developer.log('🚪 用户登出，清除所有状态');
     developer.log('  当前用户: ${_currentUser?.username} (ID: ${_currentUser?.id})');
-    
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_userKey);
     await prefs.remove(_tokenKey);
-    
     _currentUser = null;
     _currentToken = null;
     _lastUserId = null; // 清除最后登录的用户ID
     ApiService.clearAuthToken();
     ApiService.clearCache(); // 清除缓存
-    
+    _notifyLoginState();
     developer.log('✅ 登出完成，所有状态已清除');
   }
 
   // 验证token有效性
   static Future<bool> validateToken() async {
+    developer.log('[AuthService] validateToken() called, isLoggedIn=\\${isLoggedIn}');
     if (!isLoggedIn) return false;
     
     final isValid = await ApiService.validateToken();
@@ -174,6 +207,7 @@ class AuthService {
     if (_currentToken != null) {
       await _saveUserData(user, _currentToken!);
     }
+    _notifyLoginState();
   }
 
   // 注销账户
@@ -191,11 +225,11 @@ class AuthService {
       _lastUserId = null;
       ApiService.clearAuthToken();
       ApiService.clearCache();
-      
+      _notifyLoginState();
       developer.log('🗑️ 账户已注销，所有数据已清除');
     } catch (e) {
       developer.log('❌ 注销账户失败: $e');
       rethrow;
     }
   }
-} 
+}

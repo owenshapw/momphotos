@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-import 'dart:developer' as developer; // 添加这一行
+// 添加这一行
 import '../models/photo.dart';
-import '../services/photo_provider.dart';
 
 class PhotoGrid extends StatelessWidget {
   final List<Photo> photos;

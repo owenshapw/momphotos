@@ -200,10 +200,12 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.white),
             onPressed: () async {
-              final result = await context.push('/photo-edit', extra: {
+              final photoProvider = Provider.of<PhotoProvider>(context, listen: false);
+              await context.push('/photo-edit', extra: {
                 'photo': allPhotos[_currentIndex],
               });
-              // 可根据result处理后续逻辑
+              if (!mounted) return;
+              await photoProvider.resetAndReload();
             },
           ),
         ],
@@ -681,32 +683,19 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
     );
     if (confirmed != true) return;
 
-    final deletedIndex = _currentIndex;
+    // 提前获取Provider对象，彻底规避async gap
+    final photoProvider = Provider.of<PhotoProvider>(context, listen: false);
     try {
-      await context.read<PhotoProvider>().deletePhoto(photo.id);
-      final newPhotos = List<Photo>.from(allPhotos)..removeAt(deletedIndex);
-      // 同步Provider
-      context.read<PhotoProvider>().reset();
-      await context.read<PhotoProvider>().loadPhotos(forceRefresh: true);
-
-      if (newPhotos.isEmpty) {
-        setState(() {
-          allPhotos = [];
-        });
-        // 没有照片了，自动返回瀑布流并传递 scrollToId: null
-        Future.microtask(() => context.pop({'scrollToId': null}));
-        return;
-      }
-
-      int nextIndex = deletedIndex;
-      if (nextIndex >= newPhotos.length) {
-        nextIndex = newPhotos.length - 1;
-      }
+      await photoProvider.deletePhoto(photo.id);
+      if (!mounted) return;
+      await photoProvider.resetAndReload();
+      if (!mounted) return;
       setState(() {
-        allPhotos = newPhotos;
-        _currentIndex = nextIndex;
+        allPhotos = [];
       });
-      // 删除后不自动pop，用户可继续浏览相邻照片
+      if (!mounted) return;
+      context.pop({'scrollToId': null});
+      return;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

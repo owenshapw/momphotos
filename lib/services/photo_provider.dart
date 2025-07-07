@@ -209,43 +209,6 @@ class PhotoProvider with ChangeNotifier {
     }
   }
 
-  // 按拍摄日期顺序插入照片
-  void _insertPhotoInOrder(Photo photo) {
-    // 找到正确的插入位置
-    int insertIndex = 0;
-    for (int i = 0; i < _photos.length; i++) {
-      final existingPhoto = _photos[i];
-      
-      // 比较拍摄年份
-      if (photo.year != null && existingPhoto.year != null) {
-        if (photo.year! >= existingPhoto.year!) {
-          insertIndex = i;
-          break;
-        }
-      } else if (photo.year != null) {
-        // 新照片有年份，现有照片没有年份，新照片排在前面
-        insertIndex = i;
-        break;
-      } else if (existingPhoto.year != null) {
-        // 新照片没有年份，现有照片有年份，继续查找
-        continue;
-      } else {
-        // 都没有年份，按创建时间比较
-        if (photo.createdAt.isAfter(existingPhoto.createdAt)) {
-          insertIndex = i;
-          break;
-        }
-      }
-      
-      // 如果到达列表末尾，插入到最后
-      if (i == _photos.length - 1) {
-        insertIndex = _photos.length;
-      }
-    }
-    
-    _photos.insert(insertIndex, photo);
-  }
-
   // 上传照片
   Future<Photo> uploadPhoto({
     required String imagePath,
@@ -262,9 +225,7 @@ class PhotoProvider with ChangeNotifier {
         year: year,
         description: description,
       );
-      _insertPhotoInOrder(photo);
-      _applySearchFilter();
-      notifyListeners();
+      await resetAndReload();
       return photo;
     } catch (e) {
       if (e.toString().contains('401')) {
@@ -377,10 +338,10 @@ class PhotoProvider with ChangeNotifier {
           ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
             const SnackBar(content: Text('登录已过期，请重新登录')),
           );
-          await AuthService.logout();
-          if (navigatorKey.currentContext!.mounted) {
-            GoRouter.of(navigatorKey.currentContext!).go('/login');
-          }
+          // await AuthService.logout(); // 注释掉自动logout
+          // if (navigatorKey.currentContext!.mounted) {
+          //   GoRouter.of(navigatorKey.currentContext!).go('/login');
+          // }
         }
         return;
       }
@@ -459,4 +420,18 @@ class PhotoProvider with ChangeNotifier {
     lastViewedPhotoId = id;
     notifyListeners();
   }
-} 
+
+  Future<void> resetAndReload() async {
+    _photos.clear();
+    _filteredPhotos.clear();
+    _isLoading = false;
+    _error = null;
+    _searchQuery = '';
+    _hasLoaded = false;
+    _lastLoadedUserId = null;
+    ApiService.clearCache();
+    notifyListeners();
+    developer.log('🔄 PhotoProvider状态已重置并即将强制刷新');
+    await loadPhotos(forceRefresh: true);
+  }
+}
