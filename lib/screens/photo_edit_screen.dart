@@ -73,6 +73,10 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
             : _descriptionController.text.trim(),
       );
 
+      // 保存成功后强制刷新照片列表，确保瀑布流数据同步
+      await context.read<PhotoProvider>().loadPhotos(forceRefresh: true);
+      if (!mounted) return;
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('保存成功！')),

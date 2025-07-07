@@ -583,6 +583,48 @@ def delete_account():
     except Exception as e:
         return jsonify({'error': f'注销账户失败: {str(e)}'}), 500
 
+@app.route('/tag', methods=['POST'])
+def update_photo_tags():
+    """更新照片标签、年代、描述"""
+    if not supabase:
+        return jsonify({'error': 'Supabase未配置'}), 500
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': '缺少认证token'}), 401
+    token = auth_header.split(' ')[1]
+    payload = verify_token(token)
+    if not payload:
+        return jsonify({'error': 'token无效或已过期'}), 401
+    user_id = payload['user_id']
+
+    data = request.get_json()
+    photo_id = data.get('photo_id')
+    tags = data.get('tags')
+    year = data.get('year')
+    description = data.get('description')
+
+    if not photo_id:
+        return jsonify({'error': '缺少照片ID'}), 400
+
+    try:
+        # 只允许更新属于当前用户的照片
+        update_data = {}
+        if tags is not None:
+            update_data['tags'] = tags
+        if year is not None:
+            update_data['year'] = year
+        if description is not None:
+            update_data['description'] = description
+
+        result = supabase.table('photos').update(update_data).eq('id', photo_id).eq('user_id', user_id).execute()
+        if result.data:
+            return jsonify(result.data[0])
+        else:
+            return jsonify({'error': '照片更新失败'}), 500
+    except Exception as e:
+        return jsonify({'error': f'更新照片失败: {str(e)}'}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
  

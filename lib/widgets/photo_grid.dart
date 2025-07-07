@@ -41,33 +41,45 @@ class PhotoGrid extends StatelessWidget {
       );
     }
 
-    return ScrollablePositionedList.builder(
-      itemCount: (photos.length / 2).ceil(),
-      itemScrollController: itemScrollController,
-      itemPositionsListener: itemPositionsListener,
-      itemBuilder: (context, index) {
-        final int firstIndex = index * 2;
-        final int secondIndex = firstIndex + 1;
-        return Row(
-          children: [
-            Expanded(
-              child: PhotoCard(
-                photo: photos[firstIndex],
-                allPhotos: photos,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: secondIndex < photos.length
-                  ? PhotoCard(
-                      photo: photos[secondIndex],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: ScrollablePositionedList.builder(
+        itemCount: (photos.length / 2).ceil(),
+        itemScrollController: itemScrollController,
+        itemPositionsListener: itemPositionsListener,
+        itemBuilder: (context, index) {
+          final int firstIndex = index * 2;
+          final int secondIndex = firstIndex + 1;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: PhotoCard(
+                      photo: photos[firstIndex],
                       allPhotos: photos,
-                    )
-                  : const SizedBox(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: secondIndex < photos.length
+                      ? Padding(
+                          padding: const EdgeInsets.all(2),
+                          child: PhotoCard(
+                            photo: photos[secondIndex],
+                            allPhotos: photos,
+                          ),
+                        )
+                      : const SizedBox(),
+                ),
+              ],
             ),
-          ],
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
