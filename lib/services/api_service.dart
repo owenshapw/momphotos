@@ -29,7 +29,11 @@ class ApiService {
   // 获取所有照片（带缓存和分页）
   static Future<List<Photo>> getPhotos({int? limit, int? offset, bool forceRefresh = false}) async {
     final currentUserId = AuthService.currentUser?.id;
-    
+    final token = AuthService.currentToken;
+    if (token == null) {
+      developer.log('❌ Token为空，无法请求getPhotos');
+      throw Exception('登录已过期，请重新登录');
+    }
     // 检查用户是否发生变化，如果变化则清空缓存
     if (_cachedUserId != currentUserId) {
       _cachedPhotos = null;
@@ -62,8 +66,8 @@ class ApiService {
       final response = await http.get(
         uri,
         headers: {
-          if (_authToken != null) 'Authorization': 'Bearer $_authToken',
-          'Connection': 'keep-alive', // 保持连接
+          'Authorization': 'Bearer $token',
+          'Connection': 'keep-alive',
         },
       ).timeout(timeout);
       
@@ -80,6 +84,9 @@ class ApiService {
         }
         
         return photos;
+      } else if (response.statusCode == 401) {
+        developer.log('❌ Token失效，getPhotos返回401');
+        throw Exception('401');
       } else if (response.statusCode == 503) {
         // 服务暂时不可用，可能是后端正在启动
         throw Exception('服务正在启动中，请稍后重试');
@@ -100,6 +107,11 @@ class ApiService {
 
   // 按姓名搜索照片（优化版本）
   static Future<List<Photo>> searchPhotos(String name) async {
+    final token = AuthService.currentToken;
+    if (token == null) {
+      developer.log('❌ Token为空，无法请求searchPhotos');
+      throw Exception('登录已过期，请重新登录');
+    }
     try {
       // 如果缓存中有数据，先尝试本地搜索
       if (_cachedPhotos != null && _lastCacheTime != null) {
@@ -112,11 +124,15 @@ class ApiService {
       // 否则使用服务器搜索
       final response = await http.get(
         Uri.parse('$baseUrl/search?name=${Uri.encodeComponent(name)}'),
+        headers: {'Authorization': 'Bearer $token'},
       ).timeout(timeout);
       
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         return data.map((json) => Photo.fromJson(json)).toList();
+      } else if (response.statusCode == 401) {
+        developer.log('❌ Token失效，searchPhotos返回401');
+        throw Exception('401');
       } else {
         throw Exception('搜索失败: ${response.statusCode}');
       }
@@ -295,6 +311,11 @@ class ApiService {
     int? year,
     String? description,
   }) async {
+    final token = AuthService.currentToken;
+    if (token == null) {
+      developer.log('❌ Token为空，无法请求uploadPhoto');
+      throw Exception('登录已过期，请重新登录');
+    }
     try {
       // 1. 上传原图到 Supabase Storage（不压缩，保持原始质量）
       final supabase = Supabase.instance.client;
@@ -374,7 +395,7 @@ class ApiService {
         Uri.parse('$baseUrl/photos'),
         headers: {
           'Content-Type': 'application/json',
-          if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+          'Authorization': 'Bearer $token',
         },
         body: json.encode({
           'url': imageUrl,
@@ -390,6 +411,9 @@ class ApiService {
         // 清除缓存，以便下次能获取到最新列表
         clearCache();
         return Photo.fromJson(data);
+      } else if (response.statusCode == 401) {
+        developer.log('❌ Token失效，uploadPhoto返回401');
+        throw Exception('401');
       } else {
         final errorData = json.decode(response.body);
         throw Exception('上传失败: ${(errorData['error'] ?? response.body)}');
@@ -405,17 +429,25 @@ class ApiService {
 
   // 删除照片
   static Future<void> deletePhoto(String photoId) async {
+    final token = AuthService.currentToken;
+    if (token == null) {
+      developer.log('❌ Token为空，无法请求deletePhoto');
+      throw Exception('登录已过期，请重新登录');
+    }
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/photos/$photoId'),
         headers: {
-          if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+          'Authorization': 'Bearer $token',
         },
       ).timeout(timeout);
 
       if (response.statusCode == 200) {
         // 清除缓存，因为照片列表已更改
         clearCache();
+      } else if (response.statusCode == 401) {
+        developer.log('❌ Token失效，deletePhoto返回401');
+        throw Exception('401');
       } else {
         final errorData = json.decode(response.body);
         throw Exception(errorData['error'] ?? '删除失败');
@@ -463,6 +495,11 @@ class ApiService {
     dynamic year, // 允许为空字符串或null
     String? description,
   }) async {
+    final token = AuthService.currentToken;
+    if (token == null) {
+      developer.log('❌ Token为空，无法请求updatePhotoDetails');
+      throw Exception('登录已过期，请重新登录');
+    }
     try {
       final Map<String, dynamic> body = {
         'photo_id': photoId,
@@ -475,7 +512,7 @@ class ApiService {
         Uri.parse('$baseUrl/photos/update'), // 路由已更新
         headers: {
           'Content-Type': 'application/json',
-          if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+          'Authorization': 'Bearer $token',
         },
         body: json.encode(body),
       ).timeout(timeout);
@@ -485,6 +522,9 @@ class ApiService {
         // 更新成功后，清除缓存以确保下次获取的是最新数据
         clearCache();
         return Photo.fromJson(data);
+      } else if (response.statusCode == 401) {
+        developer.log('❌ Token失效，updatePhotoDetails返回401');
+        throw Exception('401');
       } else {
         final errorData = json.decode(response.body);
         throw Exception(errorData['error'] ?? '更新失败');

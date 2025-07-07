@@ -89,7 +89,7 @@ final _router = GoRouter(
             return PhotoEditScreen(photo: photo);
           }
         }
-        return const LoginScreen(); // 回退到登录页
+        return const LoginScreen();
       },
     ),
   ],
@@ -122,6 +122,7 @@ final _router = GoRouter(
   },
 );
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -192,6 +193,7 @@ class MyApp extends StatelessWidget {
       },
       // 3. 使用MaterialApp.router
       child: MaterialApp.router(
+        key: navigatorKey,
         routerConfig: _router,
         title: '妈妈的照片',
         theme: ThemeData(

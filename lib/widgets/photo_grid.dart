@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'dart:developer' as developer; // 添加这一行
 import '../models/photo.dart';
 import '../services/photo_provider.dart';
 
@@ -10,14 +11,14 @@ class PhotoGrid extends StatelessWidget {
   final List<Photo> photos;
   final ItemScrollController? itemScrollController;
   final ItemPositionsListener? itemPositionsListener;
-  final void Function(String) onPhotoReturned;
+  final void Function(Photo photo)? onPhotoTap;
 
   const PhotoGrid({
     super.key,
     required this.photos,
     this.itemScrollController,
     this.itemPositionsListener,
-    required this.onPhotoReturned,
+    this.onPhotoTap,
   });
 
   @override
@@ -48,10 +49,9 @@ class PhotoGrid extends StatelessWidget {
                       photo: photos[firstIndex],
                       allPhotos: photos,
                       onTap: () {
-                        context.push('/photo-detail', extra: {
-                          'photo': photos[firstIndex],
-                          'photos': photos,
-                        }).then((_) => onPhotoReturned(photos[firstIndex].id));
+                        if (onPhotoTap != null) {
+                          onPhotoTap!(photos[firstIndex]);
+                        }
                       },
                     ),
                   ),
@@ -65,10 +65,9 @@ class PhotoGrid extends StatelessWidget {
                             photo: photos[secondIndex],
                             allPhotos: photos,
                             onTap: () {
-                              context.push('/photo-detail', extra: {
-                                'photo': photos[secondIndex],
-                                'photos': photos,
-                              }).then((_) => onPhotoReturned(photos[secondIndex].id));
+                              if (onPhotoTap != null) {
+                                onPhotoTap!(photos[secondIndex]);
+                              }
                             },
                           ),
                         )

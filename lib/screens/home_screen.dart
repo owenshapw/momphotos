@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'dart:developer' as developer; // 添加这一行
 import '../services/photo_provider.dart';
 import '../services/auth_service.dart';
 import '../widgets/photo_grid.dart';
 import '../widgets/search_bar.dart';
+import '../models/photo.dart';
+import '../screens/upload_screen.dart';
+import '../screens/batch_upload_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,7 +18,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final ItemScrollController itemScrollController = ItemScrollController();
   final ItemPositionsListener itemPositionsListener =
       ItemPositionsListener.create();
@@ -22,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // 首次加载数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final photoProvider = context.read<PhotoProvider>();
@@ -31,20 +36,77 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _scrollToPhoto(String photoId) {
-    final photos = context.read<PhotoProvider>().filteredPhotos;
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      developer.log('HomeScreen: didChangeAppLifecycleState - 应用从后台恢复。');
+      final photoProvider = context.read<PhotoProvider>();
+      if (photoProvider.lastViewedPhotoId != null) {
+        developer.log('HomeScreen: didChangeAppLifecycleState - 检测到 lastViewedPhotoId: ${photoProvider.lastViewedPhotoId}，尝试滚动。');
+        _scrollToLastViewedPhoto(photoProvider);
+      }
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = GoRouterState.of(context).extra as Map?;
+    final scrollToId = args != null ? args['scrollToId'] : null;
+    if (scrollToId != null) {
+      final photos = context.read<PhotoProvider>().photos;
+      final index = photos.indexWhere((p) => p.id == scrollToId);
+      if (index != -1 && itemScrollController.isAttached) {
+        // 由于每行2张，需滚动到对应行
+        itemScrollController.scrollTo(index: index ~/ 2, duration: Duration(milliseconds: 300));
+      }
+    }
+  }
+
+  void _scrollToLastViewedPhoto(PhotoProvider photoProvider) {
+    final photoId = photoProvider.lastViewedPhotoId;
+    developer.log('HomeScreen: _scrollToLastViewedPhoto - 尝试滚动到照片ID: $photoId');
+    if (photoId == null) {
+      developer.log('HomeScreen: _scrollToLastViewedPhoto - photoId 为空，不执行滚动。');
+      return;
+    }
+
+    final photos = photoProvider.filteredPhotos;
     final index = photos.indexWhere((p) => p.id == photoId);
+    developer.log('HomeScreen: _scrollToLastViewedPhoto - 找到照片索引: $index');
 
     if (index != -1) {
       final rowIndex = index ~/ 2;
-      if (itemScrollController.isAttached) {
-        itemScrollController.scrollTo(
-          index: rowIndex,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-          alignment: 0.5, // 滚动到屏幕中间
-        );
-      }
+      developer.log('HomeScreen: _scrollToLastViewedPhoto - 计算出行索引: $rowIndex');
+      
+      // 使用addPostFrameCallback确保在UI渲染完成后再滚动
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && itemScrollController.isAttached) {
+          developer.log('HomeScreen: _scrollToLastViewedPhoto - 执行滚动到索引: $rowIndex');
+          itemScrollController.scrollTo(
+            index: rowIndex,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+            alignment: 0.5, // 滚动到屏幕中间，提供更好的上下文
+          );
+          // 关键修复：只有在滚动指令成功发出后，才清除标记
+          photoProvider.lastViewedPhotoId = null;
+          developer.log('HomeScreen: _scrollToLastViewedPhoto - 滚动完成，清除 lastViewedPhotoId。');
+        } else {
+          developer.log('HomeScreen: _scrollToLastViewedPhoto - 无法滚动：mounted: $mounted, isAttached: ${itemScrollController.isAttached}');
+        }
+      });
+    } else {
+      // 如果在当前列表中找不到照片，也清除标记，避免无效循环
+      photoProvider.lastViewedPhotoId = null;
+      developer.log('HomeScreen: _scrollToLastViewedPhoto - 未找到照片，清除 lastViewedPhotoId。');
     }
   }
 
@@ -68,9 +130,38 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void scrollToTop() {
+    if (itemScrollController.isAttached) {
+      itemScrollController.scrollTo(
+        index: 0,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final photoProvider = context.watch<PhotoProvider>();
+    final photos = photoProvider.filteredPhotos;
+
+    // 1. 定义打开详情页的方法，带参数跳转并处理返回
+    void _openPhotoDetail(Photo photo, List<Photo> photos) async {
+      final result = await context.push('/photo-detail', extra: {
+        'photo': photo,
+        'photos': photos,
+      });
+      if (result is Map && result['scrollToId'] != null) {
+        final scrollToId = result['scrollToId'];
+        if (scrollToId != null) {
+          // 自动滚动到目标照片
+          final index = photos.indexWhere((p) => p.id == scrollToId);
+          if (index != -1) {
+            itemScrollController.scrollTo(index: index, duration: const Duration(milliseconds: 400));
+          }
+        }
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -232,51 +323,36 @@ class _HomeScreenState extends State<HomeScreen> {
                   final photos = photoProvider.filteredPhotos;
 
                   if (photos.isEmpty && photoProvider.hasLoaded) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Image.asset(
-                              'assets/icon/launch_splash.png',
-                              width: 150,
-                              height: 150,
-                            ),
-                            const SizedBox(height: 24),
-                            Text(
-                              '暂无照片',
-                              style: TextStyle(fontSize: 22, color: Colors.grey[600]),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              '请点击右上角的上传图标开始分享您的珍贵回忆',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 16, color: Colors.grey[500]),
-                            ),
-                            const SizedBox(height: 24),
-                            ElevatedButton.icon(
-                              onPressed: () => context.push('/upload'),
-                              icon: const Icon(Icons.add_photo_alternate),
-                              label: const Text('上传第一张照片'),
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                textStyle: const TextStyle(fontSize: 16),
-                              ),
-                            ),
-                          ],
-                        ),
+                    return Container(
+                      color: const Color(0xFFF4F7F6), // mom.png底色
+                      width: double.infinity,
+                      height: double.infinity,
+                      child: Column(
+                        children: [
+                          const Spacer(flex: 2),
+                          Image.asset(
+                            'assets/icon/mom.png',
+                            width: 200,
+                            height: 200,
+                          ),
+                          const SizedBox(height: 32),
+                          Text(
+                            '点击右上角图标上传照片',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                          ),
+                          const Spacer(flex: 3), // 让内容整体偏上
+                        ],
                       ),
                     );
                   }
 
+                  // 2. 传递_openPhotoDetail给PhotoGrid，点击缩略图时调用
                   return PhotoGrid(
                     photos: photos,
                     itemScrollController: itemScrollController,
                     itemPositionsListener: itemPositionsListener,
-                    onPhotoReturned: (photoId) {
-                      _scrollToPhoto(photoId);
-                    },
+                    onPhotoTap: (photo) => _openPhotoDetail(photo, photos), // 传递点击回调
                   );
                 },
               ),
@@ -288,53 +364,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _logout() async {
-    if (!mounted) return;
-    final photoProvider = context.read<PhotoProvider>();
-    final goRouter = GoRouter.of(context);
-    await AuthService.logout();
-    if (!mounted) return;
-    photoProvider.reset();
-    goRouter.go('/login');
-  }
-
-  void _scrollToLastViewedPhoto(PhotoProvider photoProvider) {
-    final photoId = photoProvider.lastViewedPhotoId;
-    if (photoId == null) {
-      return;
-    }
-
-    final photos = photoProvider.filteredPhotos;
-    final index = photos.indexWhere((p) => p.id == photoId);
-
-    if (index != -1) {
-      final rowIndex = index ~/ 2;
-      
-      // 使用addPostFrameCallback确保在UI渲染完成后再滚动
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && itemScrollController.isAttached) {
-          itemScrollController.scrollTo(
-            index: rowIndex,
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeInOut,
-            alignment: 0.5, // 滚动到屏幕中间，提供更好的上下文
-          );
-          // 关键修复：只有在滚动指令成功发出后，才清除标记
-          photoProvider.lastViewedPhotoId = null;
-        }
-      });
-    } else {
-      // 如果在当前列表中找不到照片，也清除标记，避免无效循环
-      photoProvider.lastViewedPhotoId = null;
-    }
-  }
-
-  void scrollToTop() {
-    if (itemScrollController.isAttached) {
-      itemScrollController.scrollTo(
-        index: 0,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeOut,
-      );
+    try {
+      if (!mounted) return;
+      final photoProvider = context.read<PhotoProvider>();
+      final goRouter = GoRouter.of(context);
+      await AuthService.logout();
+      if (!mounted) return;
+      photoProvider.reset();
+      goRouter.go('/login');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('登出失败: ${e.toString()}')),
+        );
+      }
     }
   }
 }

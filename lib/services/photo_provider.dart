@@ -5,6 +5,9 @@ import '../models/photo.dart';
 import 'api_service.dart';
 
 import '../services/auth_service.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../main.dart';
 
 class PhotoProvider with ChangeNotifier {
   List<Photo> _photos = [];
@@ -15,7 +18,7 @@ class PhotoProvider with ChangeNotifier {
   List<String> _searchHistory = [];
   bool _hasLoaded = false; // 添加加载状态标记
   String? _lastLoadedUserId;
-  String? lastViewedPhotoId;
+  String? lastViewedPhotoId; // 用于从详情页返回时定位
 
   // Getters
   List<Photo> get photos => _photos;
@@ -40,69 +43,61 @@ class PhotoProvider with ChangeNotifier {
     // 检查用户是否发生变化
     final currentUserId = AuthService.currentUser?.id;
     if (currentUserId != null && _lastLoadedUserId != currentUserId) {
-          developer.log('🔄 检测到用户切换，重置PhotoProvider状态');
-    developer.log('  上次加载用户ID: $_lastLoadedUserId');
-    developer.log('  当前用户ID: $currentUserId');
+      developer.log('🔄 检测到用户切换，重置PhotoProvider状态');
+      developer.log('  上次加载用户ID: $_lastLoadedUserId');
+      developer.log('  当前用户ID: $currentUserId');
       reset();
       _lastLoadedUserId = currentUserId;
       forceRefresh = true; // 强制刷新
     }
-    
-    // 如果已经加载过且不强制刷新，直接返回
     if (_hasLoaded && !forceRefresh && _photos.isNotEmpty) {
       return;
     }
-    
     _setLoading(true);
     _error = null;
-    
-    // 添加重试机制
     int retryCount = 0;
     const maxRetries = 3;
-    
     while (retryCount < maxRetries) {
       try {
-        // 使用新的API，支持缓存
         final allPhotos = await ApiService.getPhotos(forceRefresh: forceRefresh);
-        
-        // 直接使用API返回的照片，不再进行额外的验证（提高速度）
-          _photos = allPhotos;
-        
-        // 按拍摄日期排序（从近到远）
+        _photos = allPhotos;
         _photos.sort((a, b) {
-          // 优先按拍摄年份排序
           if (a.year != null && b.year != null) {
-            return b.year!.compareTo(a.year!); // 降序，最新的在前
+            return b.year!.compareTo(a.year!);
           } else if (a.year != null) {
-            return -1; // 有年份的排在前面
+            return -1;
           } else if (b.year != null) {
             return 1;
           } else {
-            // 如果都没有年份，按创建时间排序
             return b.createdAt.compareTo(a.createdAt);
           }
         });
-        
         _applySearchFilter();
-        _hasLoaded = true; // 标记为已加载
-        _lastLoadedUserId = currentUserId; // 记录当前加载的用户ID
-        
-        developer.log('📸 照片加载完成: ${_photos.length} 张照片 (用户ID: $currentUserId)');
-        
-        // 先通知UI更新，然后设置加载完成
+        _hasLoaded = true;
+        _lastLoadedUserId = currentUserId;
+        developer.log('📸 照片加载完成: [32m[1m${_photos.length}[0m 张照片 (用户ID: $currentUserId)');
         notifyListeners();
         _setLoading(false);
-        
-        return; // 成功则退出
+        return;
       } catch (e) {
+        if (e.toString().contains('401')) {
+          if (navigatorKey.currentContext != null) {
+            ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+              const SnackBar(content: Text('登录已过期，请重新登录')),
+            );
+            await AuthService.logout();
+            if (navigatorKey.currentContext!.mounted) {
+              GoRouter.of(navigatorKey.currentContext!).go('/login');
+            }
+          }
+          return;
+        }
         retryCount++;
         if (retryCount >= maxRetries) {
-          // 最后一次重试失败
           _error = e.toString();
           _setLoading(false);
           notifyListeners();
         } else {
-          // 减少重试间隔，提高响应速度
           await Future.delayed(Duration(seconds: retryCount));
         }
       }
@@ -114,30 +109,34 @@ class PhotoProvider with ChangeNotifier {
     // 搜索照片
   Future<void> searchPhotos(String query) async {
     _searchQuery = query.trim();
-
     if (_searchQuery.isEmpty) {
       _filteredPhotos = _photos;
       notifyListeners();
       return;
     }
-
-    // 添加到搜索历史
     _addToSearchHistory(_searchQuery);
-    
-    // 优先使用本地搜索（更快）
     _applyLocalSearchFilter();
     notifyListeners();
-    
-    // 如果本地没有数据，尝试服务器搜索
     if (_photos.isEmpty) {
       _setLoading(true);
       _error = null;
-      
       try {
         _filteredPhotos = await ApiService.searchPhotos(_searchQuery);
         notifyListeners();
       } catch (e) {
-        _error = null; // 清除错误，因为本地搜索可以工作
+        if (e.toString().contains('401')) {
+          if (navigatorKey.currentContext != null) {
+            ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+              const SnackBar(content: Text('登录已过期，请重新登录')),
+            );
+            await AuthService.logout();
+            if (navigatorKey.currentContext!.mounted) {
+              GoRouter.of(navigatorKey.currentContext!).go('/login');
+            }
+          }
+          return;
+        }
+        _error = null;
         _applyLocalSearchFilter();
         notifyListeners();
       } finally {
@@ -256,7 +255,6 @@ class PhotoProvider with ChangeNotifier {
   }) async {
     _setLoading(true);
     _error = null;
-    
     try {
       final photo = await ApiService.uploadPhoto(
         imageFile: File(imagePath),
@@ -264,16 +262,31 @@ class PhotoProvider with ChangeNotifier {
         year: year,
         description: description,
       );
-      
-      // 按拍摄日期顺序插入照片
       _insertPhotoInOrder(photo);
       _applySearchFilter();
       notifyListeners();
-      return photo; // 返回上传成功的照片
+      return photo;
     } catch (e) {
+      if (e.toString().contains('401')) {
+        if (navigatorKey.currentContext != null) {
+          ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+            const SnackBar(content: Text('登录已过期，请重新登录')),
+          );
+          await AuthService.logout();
+          if (navigatorKey.currentContext!.mounted) {
+            GoRouter.of(navigatorKey.currentContext!).go('/login');
+          }
+        }
+        throw Exception('登录已过期，请重新登录');
+      }
       _error = e.toString();
       notifyListeners();
-      rethrow; // 重新抛出异常
+      if (navigatorKey.currentContext != null) {
+        ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+          SnackBar(content: Text('操作失败: [31m${e.toString()}[0m')),
+        );
+      }
+      rethrow;
     } finally {
       _setLoading(false);
     }
@@ -283,7 +296,6 @@ class PhotoProvider with ChangeNotifier {
   Future<void> deletePhoto(String photoId) async {
     _setLoading(true);
     _error = null;
-    
     try {
       await ApiService.deletePhoto(photoId);
       
@@ -292,9 +304,26 @@ class PhotoProvider with ChangeNotifier {
       _applySearchFilter();
       notifyListeners();
     } catch (e) {
+      if (e.toString().contains('401')) {
+        if (navigatorKey.currentContext != null) {
+          ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+            const SnackBar(content: Text('登录已过期，请重新登录')),
+          );
+          await AuthService.logout();
+          if (navigatorKey.currentContext!.mounted) {
+            GoRouter.of(navigatorKey.currentContext!).go('/login');
+          }
+        }
+        return;
+      }
       _error = e.toString();
       notifyListeners();
-      rethrow; // 重新抛出异常，让调用者处理
+      if (navigatorKey.currentContext != null) {
+        ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+          SnackBar(content: Text('操作失败: [31m${e.toString()}[0m')),
+        );
+      }
+      rethrow;
     } finally {
       _setLoading(false);
     }
@@ -309,7 +338,6 @@ class PhotoProvider with ChangeNotifier {
   }) async {
     _setLoading(true);
     _error = null;
-    
     try {
       final updatedPhoto = await ApiService.updatePhotoDetails(
         photoId: photoId,
@@ -343,8 +371,26 @@ class PhotoProvider with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
+      if (e.toString().contains('401')) {
+        // token失效，弹窗提示并跳转登录页
+        if (navigatorKey.currentContext != null) {
+          ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+            const SnackBar(content: Text('登录已过期，请重新登录')),
+          );
+          await AuthService.logout();
+          if (navigatorKey.currentContext!.mounted) {
+            GoRouter.of(navigatorKey.currentContext!).go('/login');
+          }
+        }
+        return;
+      }
       _error = e.toString();
       notifyListeners();
+      if (navigatorKey.currentContext != null) {
+        ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+          SnackBar(content: Text('操作失败: [31m${e.toString()}[0m')),
+        );
+      }
       rethrow; // 重新抛出异常，让UI层处理
     } finally {
       _setLoading(false);
@@ -379,7 +425,8 @@ class PhotoProvider with ChangeNotifier {
     _searchQuery = '';
     _hasLoaded = false;
     _lastLoadedUserId = null; // 清除上次加载的用户ID
-    ApiService.clearCache(); // 清除API缓存
+    // 只清除照片缓存，不清token
+    ApiService.clearCache();
     notifyListeners();
     developer.log('🔄 PhotoProvider状态已重置');
   }
@@ -405,6 +452,11 @@ class PhotoProvider with ChangeNotifier {
   // 清除搜索历史
   void clearSearchHistory() {
     _searchHistory.clear();
+    notifyListeners();
+  }
+
+  void setLastViewedPhotoId(String? id) {
+    lastViewedPhotoId = id;
     notifyListeners();
   }
 } 

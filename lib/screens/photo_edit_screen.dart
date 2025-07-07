@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../models/photo.dart';
 import '../services/photo_provider.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 class PhotoEditScreen extends StatefulWidget {
   final Photo photo;
@@ -22,6 +23,11 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
   int? _selectedYear;
   bool _isSaving = false;
 
+  // 新增：照片列表、当前索引、滚动控制器
+  late List<Photo> allPhotos;
+  late int _currentIndex;
+  final ItemScrollController itemScrollController = ItemScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -29,6 +35,9 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
     _tags.addAll(widget.photo.tags);
     _selectedYear = widget.photo.year;
     _descriptionController.text = widget.photo.description ?? '';
+    // 初始化照片列表和当前索引
+    allPhotos = [widget.photo]; // 如有多张照片可改为 widget.photos
+    _currentIndex = 0;
   }
 
   @override
@@ -82,7 +91,15 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
           const SnackBar(content: Text('保存成功！')),
         );
         
-        context.pop();
+        final result = await context.push('/photo-detail', extra: {'scrollToId': allPhotos[_currentIndex].id});
+        if (result != null && result is Map && result['scrollToId'] != null) {
+          final scrollToId = result['scrollToId'];
+          final photos = context.read<PhotoProvider>().photos;
+          final index = photos.indexWhere((p) => p.id == scrollToId);
+          if (index != -1 && itemScrollController.isAttached) {
+            itemScrollController.scrollTo(index: index ~/ 2, duration: Duration(milliseconds: 300));
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -101,6 +118,26 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (allPhotos.isEmpty) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => context.pop(),
+          ),
+        ),
+        body: const Center(
+          child: Text(
+            '没有照片可显示',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('编辑照片'),
@@ -296,7 +333,8 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
                     const SizedBox(height: 16),
                     Builder(
                       builder: (context) {
-                        final years = List.generate(100, (index) => 2024 - index);
+                        final currentYear = DateTime.now().year;
+                        final years = List.generate(100, (index) => currentYear - index);
                         return DropdownButtonFormField<int>(
                           value: years.contains(_selectedYear) ? _selectedYear : null,
                           hint: const Text('选择拍摄年代（可选）'),
@@ -425,5 +463,51 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _deletePhoto(Photo photo) async {
+    final deletedIndex = _currentIndex;
+    try {
+      await context.read<PhotoProvider>().deletePhoto(photo.id);
+      final newPhotos = List<Photo>.from(allPhotos)..removeAt(deletedIndex);
+
+      if (newPhotos.isEmpty) {
+        setState(() {
+          allPhotos = [];
+        });
+        return;
+      }
+
+      int nextIndex = deletedIndex;
+      if (nextIndex >= newPhotos.length) {
+        nextIndex = newPhotos.length - 1;
+      }
+      setState(() {
+        allPhotos = newPhotos;
+        _currentIndex = nextIndex;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map?;
+      final scrollToId = args != null ? args['scrollToId'] : null;
+      if (scrollToId != null) {
+        final photos = context.read<PhotoProvider>().photos;
+        final index = photos.indexWhere((p) => p.id == scrollToId);
+        if (index != -1 && itemScrollController.isAttached) {
+          itemScrollController.scrollTo(index: index ~/ 2, duration: Duration(milliseconds: 300));
+        }
+      }
+    });
   }
 } 

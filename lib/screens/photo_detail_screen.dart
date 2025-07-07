@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:developer' as developer; // 添加这一行
 import '../models/photo.dart';
 import '../services/photo_provider.dart';
 import 'package:provider/provider.dart';
@@ -31,6 +32,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
   late PageController _pageController;
   late int _currentIndex;
   final _preloadedIndices = <int>{};
+  late List<Photo> allPhotos;
 
   @override
   void initState() {
@@ -38,12 +40,21 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
     // 获取当前照片在列表中的索引
     _currentIndex = widget.photos.indexWhere((photo) => photo.id == widget.photo.id);
     if (_currentIndex == -1) _currentIndex = 0;
-    
     _pageController = PageController(initialPage: _currentIndex);
-
     // 设置初始查看的照片ID
     if (widget.photos.isNotEmpty) {
       context.read<PhotoProvider>().lastViewedPhotoId = widget.photos[_currentIndex].id;
+    }
+    // 优先用Provider的照片列表（如有更新），否则用传递的参数
+    final providerPhotos = context.read<PhotoProvider>().photos;
+    if (providerPhotos.isNotEmpty) {
+      allPhotos = providerPhotos;
+      // 重新定位索引
+      _currentIndex = providerPhotos.indexWhere((photo) => photo.id == widget.photo.id);
+      if (_currentIndex == -1) _currentIndex = 0;
+      _pageController = PageController(initialPage: _currentIndex);
+    } else {
+      allPhotos = widget.photos;
     }
   }
 
@@ -161,7 +172,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => context.pop(),
+          onPressed: _onBack,
         ),
         title: Text(
           '${_currentIndex + 1} / ${allPhotos.length}',
@@ -189,12 +200,10 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.white),
             onPressed: () async {
-              await context.push('/photo-edit', extra: {
+              final result = await context.push('/photo-edit', extra: {
                 'photo': allPhotos[_currentIndex],
               });
-              
-              // 如果编辑成功，PhotoProvider已经处理了数据更新
-              // 不需要额外操作，因为数据会自动更新
+              // 可根据result处理后续逻辑
             },
           ),
         ],
@@ -230,6 +239,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                         _currentIndex = index;
                         // 更新最后查看的照片ID
                         context.read<PhotoProvider>().lastViewedPhotoId = allPhotos[index].id;
+                        developer.log('PhotoDetailScreen: onPageChanged - lastViewedPhotoId 设置为: ${allPhotos[index].id}');
                       });
                       
                       // 页面变化时预加载相邻照片
@@ -589,7 +599,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('下载失败: $e')),
+          SnackBar(content: Text('下载失败: ${e.toString()}')),
         );
       }
     }
@@ -650,9 +660,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
   }
 
   Future<void> _deletePhoto(Photo photo) async {
-    final photoProvider = context.read<PhotoProvider>();
-    final navigator = GoRouter.of(context);
-
+    // 1. 弹出确认对话框
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -671,46 +679,49 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
         ],
       ),
     );
-
     if (confirmed != true) return;
 
+    final deletedIndex = _currentIndex;
     try {
-      final int deletedIndex = _currentIndex;
-      await photoProvider.deletePhoto(photo.id);
-      if (!mounted) return;
+      await context.read<PhotoProvider>().deletePhoto(photo.id);
+      final newPhotos = List<Photo>.from(allPhotos)..removeAt(deletedIndex);
+      // 同步Provider
+      context.read<PhotoProvider>().reset();
+      await context.read<PhotoProvider>().loadPhotos(forceRefresh: true);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('照片删除成功！')),
-      );
-
-      // 获取更新后的照片列表
-      final newPhotos = photoProvider.photos;
-
-      // 如果删除后没有照片了，直接返回主页
       if (newPhotos.isEmpty) {
-        navigator.pop();
+        setState(() {
+          allPhotos = [];
+        });
+        // 没有照片了，自动返回瀑布流并传递 scrollToId: null
+        Future.microtask(() => context.pop({'scrollToId': null}));
         return;
       }
 
-      // 计算下一个要显示的索引
-      final newIndex = (deletedIndex < newPhotos.length) ? deletedIndex : newPhotos.length - 1;
-      final Photo nextPhotoToShow = newPhotos[newIndex];
-
-      // 关键：设置lastViewedPhotoId，便于瀑布流页面定位
-      photoProvider.lastViewedPhotoId = nextPhotoToShow.id;
-
-      // 使用新数据替换当前页面，实现无缝切换
-      navigator.pushReplacement('/photo-detail', extra: {
-        'photo': nextPhotoToShow,
-        'photos': newPhotos,
+      int nextIndex = deletedIndex;
+      if (nextIndex >= newPhotos.length) {
+        nextIndex = newPhotos.length - 1;
+      }
+      setState(() {
+        allPhotos = newPhotos;
+        _currentIndex = nextIndex;
       });
-
+      // 删除后不自动pop，用户可继续浏览相邻照片
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败: $e')),
+          SnackBar(content: Text('删除失败: ${e.toString()}')),
         );
       }
+    }
+  }
+
+  // 返回按钮或其它返回逻辑中，返回瀑布流并传递当前照片id
+  void _onBack() {
+    if (allPhotos.isNotEmpty) {
+      context.pop({'scrollToId': allPhotos[_currentIndex].id});
+    } else {
+      context.pop({'scrollToId': null});
     }
   }
 }
