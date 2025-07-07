@@ -124,7 +124,6 @@ class _BatchUploadScreenState extends State<BatchUploadScreen> {
         final dateTime = exifData['Image DateTime']?.printable;
         
         String? dateString = dateTimeOriginal ?? dateTime;
-        
         if (dateString != null) {
           // 解析日期格式 (通常是 YYYY:MM:DD HH:MM:SS)
           final parts = dateString.split(' ')[0].split(':');
@@ -135,7 +134,7 @@ class _BatchUploadScreenState extends State<BatchUploadScreen> {
             }
           }
         }
-      }
+            }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('EXIF解析失败: $e');
@@ -671,4 +670,4 @@ class _BatchUploadScreenState extends State<BatchUploadScreen> {
       ),
     );
   }
-} 
+}

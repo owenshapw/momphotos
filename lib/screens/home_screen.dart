@@ -29,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final photoProvider = context.read<PhotoProvider>();
       if (AuthService.isLoggedIn && !photoProvider.hasLoaded) {
-        photoProvider.loadPhotos(forceRefresh: false);
+        photoProvider.loadPhotos(forceRefresh: true); // 强制刷新，确保登录后拉取
       }
     });
   }
@@ -248,6 +248,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   final photoProvider = context.watch<PhotoProvider>();
                   final photos = photoProvider.filteredPhotos;
 
+                  // 兜底：如果已登录但还没加载且没在加载，自动拉取
+                  if (AuthService.isLoggedIn && !photoProvider.hasLoaded && !photoProvider.isLoading) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      context.read<PhotoProvider>().loadPhotos(forceRefresh: true);
+                    });
+                  }
+
                   if (photoProvider.isLoading && !photoProvider.hasLoaded) {
                     return const Center(
                       child: Column(
@@ -264,6 +271,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   }
 
                   if (photoProvider.error != null) {
+                    // 新增：如果是未登录错误，弹窗提示而不是直接跳转
+                    if (photoProvider.error!.contains('未登录') || photoProvider.error!.contains('401')) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (ScaffoldMessenger.of(context).mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('登录状态已失效，请重新登录')),
+                          );
+                        }
+                        // 可选：自动登出并跳转登录页（如需自动跳转可放开下面两行）
+                        // context.read<PhotoProvider>().reset();
+                        // GoRouter.of(context).go('/login');
+                      });
+                    }
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.all(32),

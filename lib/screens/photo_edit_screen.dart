@@ -90,14 +90,8 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
         const SnackBar(content: Text('保存成功！')),
       );
       
-      final result = await context.push('/photo-detail', extra: {'scrollToId': allPhotos[_currentIndex].id});
-      if (result != null && result is Map && result['scrollToId'] != null) {
-        final scrollToId = result['scrollToId'];
-        final index = photos.indexWhere((p) => p.id == scrollToId);
-        if (index != -1 && itemScrollController.isAttached) {
-          itemScrollController.scrollTo(index: index ~/ 2, duration: Duration(milliseconds: 300));
-        }
-      }
+      // 返回到前一个页面，并传递更新后的照片ID以便高亮
+      context.pop({'updatedPhotoId': widget.photo.id});
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

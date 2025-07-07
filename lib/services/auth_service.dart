@@ -123,7 +123,7 @@ class AuthService {
     // 登录后强制刷新Provider照片
     if (navigatorKey.currentContext != null) {
       final provider = navigatorKey.currentContext!.read<PhotoProvider>();
-      await provider.resetAndReload();
+      await provider.loadPhotos(forceRefresh: true);
     }
     return response;
   }
@@ -160,7 +160,7 @@ class AuthService {
     // 登录后强制刷新Provider照片
     if (navigatorKey.currentContext != null) {
       final provider = navigatorKey.currentContext!.read<PhotoProvider>();
-      await provider.resetAndReload();
+      await provider.loadPhotos(forceRefresh: true);
     }
     
     return response;
@@ -185,7 +185,7 @@ class AuthService {
 
   // 验证token有效性
   static Future<bool> validateToken() async {
-    developer.log('[AuthService] validateToken() called, isLoggedIn=\\${isLoggedIn}');
+    developer.log('[AuthService] validateToken() called, isLoggedIn=\\$isLoggedIn');
     if (!isLoggedIn) return false;
     
     final isValid = await ApiService.validateToken();

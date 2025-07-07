@@ -205,7 +205,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                 'photo': allPhotos[_currentIndex],
               });
               if (!mounted) return;
-              await photoProvider.resetAndReload();
+              await photoProvider.loadPhotos(forceRefresh: true);
             },
           ),
         ],
@@ -684,11 +684,13 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
     if (confirmed != true) return;
 
     // 提前获取Provider对象，彻底规避async gap
+    // ignore: use_build_context_synchronously
     final photoProvider = Provider.of<PhotoProvider>(context, listen: false);
     try {
       await photoProvider.deletePhoto(photo.id);
       if (!mounted) return;
-      await photoProvider.resetAndReload();
+      // 只在用户ID变化时才会真正重置，否则只刷新
+      await photoProvider.loadPhotos(forceRefresh: true);
       if (!mounted) return;
       setState(() {
         allPhotos = [];
@@ -699,11 +701,12 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败: ${e.toString()}')),
+          SnackBar(content: Text('删除失败: [31m${e.toString()}[0m')),
         );
       }
     }
   }
+
 
   // 返回按钮或其它返回逻辑中，返回瀑布流并传递当前照片id
   void _onBack() {
