@@ -19,9 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ItemScrollController itemScrollController = ItemScrollController();
   final ItemPositionsListener itemPositionsListener =
       ItemPositionsListener.create();
-  final ItemScrollController itemScrollController = ItemScrollController();
-  final ItemPositionsListener itemPositionsListener =
-      ItemPositionsListener.create();
+  bool _hasScrolledToLastViewed = false;
 
   @override
   void initState() {
@@ -32,6 +30,20 @@ class _HomeScreenState extends State<HomeScreen> {
         photoProvider.loadPhotos(forceRefresh: false);
       }
     });
+
+    itemPositionsListener.itemPositions.addListener(() {
+      final photoProvider = context.read<PhotoProvider>();
+      if (!_hasScrolledToLastViewed && photoProvider.lastViewedPhotoId != null) {
+        _scrollToLastViewedPhoto(photoProvider);
+        _hasScrolledToLastViewed = true;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    itemPositionsListener.itemPositions.removeListener(() {}); // Remove all listeners
+    super.dispose();
   }
 
   Future<void> _deleteAccount() async {
@@ -57,7 +69,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final photoProvider = context.watch<PhotoProvider>();
-    _scrollToLastViewedPhoto(photoProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -240,8 +251,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-}
-
   void _scrollToLastViewedPhoto(PhotoProvider photoProvider) {
     final photoId = photoProvider.lastViewedPhotoId;
     if (photoId == null) {
@@ -256,7 +265,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (index != -1) {
       final rowIndex = index ~/ 2;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && itemScrollController.isAttached) {
+        if (!mounted) {
+          return;
+        }
+        if (itemScrollController.isAttached) {
           itemScrollController.scrollTo(
             index: rowIndex,
             duration: const Duration(milliseconds: 500),
@@ -276,3 +288,4 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
   }
+}

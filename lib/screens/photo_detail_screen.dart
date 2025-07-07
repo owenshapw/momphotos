@@ -704,6 +704,9 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
       final newIndex = (deletedIndex < newPhotos.length) ? deletedIndex : newPhotos.length - 1;
       final Photo nextPhotoToShow = newPhotos[newIndex];
 
+      // 关键：设置lastViewedPhotoId，便于瀑布流页面定位
+      photoProvider.lastViewedPhotoId = nextPhotoToShow.id;
+
       // 使用新数据替换当前页面
       navigator.pushReplacement('/photo-detail', extra: {
         'photo': nextPhotoToShow,
@@ -718,4 +721,4 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
       }
     }
   }
-} 
+}
