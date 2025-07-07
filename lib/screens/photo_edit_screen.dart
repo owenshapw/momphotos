@@ -64,7 +64,7 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
     });
 
     try {
-      await context.read<PhotoProvider>().updatePhotoTags(
+      await context.read<PhotoProvider>().updatePhotoDetails(
         photoId: widget.photo.id,
         tags: _tags,
         year: _selectedYear,
@@ -294,23 +294,25 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<int>(
-                      value: _selectedYear,
-                      hint: const Text('选择拍摄年代（可选）'),
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                      ),
-                      items: List.generate(100, (index) {
-                        final year = 2024 - index;
-                        return DropdownMenuItem<int>(
-                          value: year,
-                          child: Text('$year年'),
+                    Builder(
+                      builder: (context) {
+                        final years = List.generate(100, (index) => 2024 - index);
+                        return DropdownButtonFormField<int>(
+                          value: years.contains(_selectedYear) ? _selectedYear : null,
+                          hint: const Text('选择拍摄年代（可选）'),
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                          ),
+                          items: years.map((year) => DropdownMenuItem<int>(
+                            value: year,
+                            child: Text('$year年'),
+                          )).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedYear = value;
+                            });
+                          },
                         );
-                      }),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedYear = value;
-                        });
                       },
                     ),
                   ],

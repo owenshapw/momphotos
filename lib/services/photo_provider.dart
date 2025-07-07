@@ -300,18 +300,18 @@ class PhotoProvider with ChangeNotifier {
     }
   }
 
-  // 更新照片标签和描述
-  Future<void> updatePhotoTags({
+  // 更新照片标签、年代和描述
+  Future<void> updatePhotoDetails({
     required String photoId,
-    required List<String> tags,
-    int? year,
+    List<String>? tags,
+    dynamic year,
     String? description,
   }) async {
     _setLoading(true);
     _error = null;
     
     try {
-      final updatedPhoto = await ApiService.updatePhotoTags(
+      final updatedPhoto = await ApiService.updatePhotoDetails(
         photoId: photoId,
         tags: tags,
         year: year,
@@ -324,36 +324,28 @@ class PhotoProvider with ChangeNotifier {
         final oldPhoto = _photos[index];
         _photos[index] = updatedPhoto;
         
-        bool needsResort = false;
-        
-        // 只有当年份发生变化时才重新排序
+        // 只有当年份发生变化时才需要重新排序
         if (oldPhoto.year != updatedPhoto.year) {
-          needsResort = true;
           _photos.sort((a, b) {
-            // 优先按拍摄年份排序
             if (a.year != null && b.year != null) {
-              return b.year!.compareTo(a.year!); // 降序，最新的在前
+              return b.year!.compareTo(a.year!); // 降序
             } else if (a.year != null) {
-              return -1; // 有年份的排在前面
+              return -1;
             } else if (b.year != null) {
               return 1;
             } else {
-              // 如果都没有年份，按创建时间排序
               return b.createdAt.compareTo(a.createdAt);
             }
           });
         }
         
-        // 只有在需要重新排序或搜索过滤结果可能受影响时才更新过滤结果
-        if (needsResort || _searchQuery.isNotEmpty) {
-          _applySearchFilter();
-        }
-        
+        _applySearchFilter();
         notifyListeners();
       }
     } catch (e) {
       _error = e.toString();
       notifyListeners();
+      rethrow; // 重新抛出异常，让UI层处理
     } finally {
       _setLoading(false);
     }

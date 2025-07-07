@@ -456,30 +456,38 @@ class ApiService {
     }
   }
 
-  // 为照片添加或更新标签和描述
-  static Future<Photo> updatePhotoTags({
+  // 为照片添加或更新标签、年代和描述
+  static Future<Photo> updatePhotoDetails({
     required String photoId,
-    required List<String> tags,
-    int? year,
+    List<String>? tags,
+    dynamic year, // 允许为空字符串或null
     String? description,
   }) async {
     try {
+      final Map<String, dynamic> body = {
+        'photo_id': photoId,
+      };
+      if (tags != null) body['tags'] = tags;
+      if (year != null) body['year'] = year;
+      if (description != null) body['description'] = description;
+
       final response = await http.post(
-        Uri.parse('$baseUrl/tag'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'photo_id': photoId,
-          'tags': tags,
-          if (year != null) 'year': year,
-          if (description != null) 'description': description,
-        }),
+        Uri.parse('$baseUrl/photos/update'), // 路由已更新
+        headers: {
+          'Content-Type': 'application/json',
+          if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+        },
+        body: json.encode(body),
       ).timeout(timeout);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        // 更新成功后，清除缓存以确保下次获取的是最新数据
+        clearCache();
         return Photo.fromJson(data);
       } else {
-        throw Exception('更新失败: ${response.statusCode}');
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['error'] ?? '更新失败');
       }
     } on TimeoutException {
       throw Exception('请求超时，请检查网络连接');

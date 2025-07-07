@@ -583,11 +583,11 @@ def delete_account():
     except Exception as e:
         return jsonify({'error': f'注销账户失败: {str(e)}'}), 500
 
-@app.route('/tag', methods=['POST'])
-def update_photo_tags():
-    """更新照片标签、年代、描述"""
+@app.route('/photos/update', methods=['POST'])
+def update_photo_details():
+    """更新照片标签、年代、描述（采用更稳健的“更新后重新获取”策略）"""
     if not supabase:
-        return jsonify({'error': 'Supabase未配置'}), 500
+        return jsonify({'error': '数据库服务未配置'}), 500
 
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
@@ -600,29 +600,68 @@ def update_photo_tags():
 
     data = request.get_json()
     photo_id = data.get('photo_id')
-    tags = data.get('tags')
-    year = data.get('year')
-    description = data.get('description')
-
+    
     if not photo_id:
         return jsonify({'error': '缺少照片ID'}), 400
 
-    try:
-        # 只允许更新属于当前用户的照片
-        update_data = {}
-        if tags is not None:
-            update_data['tags'] = tags
-        if year is not None:
-            update_data['year'] = year
-        if description is not None:
-            update_data['description'] = description
+    print(f"🔄 [UPDATE] 用户ID: {user_id} 正在更新照片ID: {photo_id}")
+    print(f"   [DATA] 接收到的数据: {data}")
 
-        result = supabase.table('photos').update(update_data).eq('id', photo_id).eq('user_id', user_id).execute()
-        if result.data:
-            return jsonify(result.data[0])
+    try:
+        # 1. 检查照片是否存在且属于当前用户
+        photo_response = supabase.table('photos').select('*').eq('id', photo_id).eq('user_id', user_id).limit(1).execute()
+        if not photo_response.data:
+            any_photo = supabase.table('photos').select('id').eq('id', photo_id).limit(1).execute()
+            if any_photo.data:
+                print(f"   [FAIL] 无权限: 用户 {user_id} 尝试更新不属于自己的照片 {photo_id}")
+                return jsonify({'error': '无权限更新该照片'}), 403
+            else:
+                print(f"   [FAIL] 照片不存在: {photo_id}")
+                return jsonify({'error': '照片不存在'}), 404
+        
+        original_photo = photo_response.data[0]
+
+        # 2. 准备要更新的数据
+        update_data = {}
+        if 'tags' in data and data['tags'] != original_photo.get('tags'):
+            update_data['tags'] = data['tags']
+        if 'description' in data and data['description'] != original_photo.get('description'):
+            update_data['description'] = data['description']
+        
+        if 'year' in data:
+            year_input = data['year']
+            current_year = original_photo.get('year')
+            new_year = None
+            if year_input not in ['', None]:
+                try:
+                    new_year = int(year_input)
+                except (ValueError, TypeError):
+                    print(f"   [FAIL] 年份格式错误: {year_input}")
+                    return jsonify({'error': '年份必须是有效的数字'}), 400
+            
+            if new_year != current_year:
+                update_data['year'] = new_year
+
+        # 3. 如果有数据变化，则执行更新
+        if update_data:
+            print(f"   [EXEC] 即将更新的数据: {update_data}")
+            supabase.table('photos').update(update_data).eq('id', photo_id).eq('user_id', user_id).execute()
         else:
-            return jsonify({'error': '照片更新失败'}), 500
+            print(f"   [INFO] 数据无变化，无需更新照片ID: {photo_id}")
+
+        # 4. 无论是否更新，都重新获取最新的照片数据并返回
+        print(f"   [FETCH] 重新获取照片数据: {photo_id}")
+        final_photo_response = supabase.table('photos').select('*').eq('id', photo_id).limit(1).execute()
+        
+        if final_photo_response.data:
+            print(f"   [SUCCESS] 照片更新/获取成功: {photo_id}")
+            return jsonify(final_photo_response.data[0])
+        else:
+            print(f"   [ERROR] 更新后无法重新获取照片: {photo_id}")
+            return jsonify({'error': '无法检索更新后的照片'}), 404
+
     except Exception as e:
+        print(f"❌ [CRITICAL] 更新照片时发生严重错误: {str(e)}")
         return jsonify({'error': f'更新照片失败: {str(e)}'}), 500
 
 if __name__ == '__main__':
