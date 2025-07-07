@@ -22,25 +22,17 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    // 首次加载数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final photoProvider = context.read<PhotoProvider>();
       if (AuthService.isLoggedIn && !photoProvider.hasLoaded) {
         photoProvider.loadPhotos(forceRefresh: false);
-      }
-      _scrollToLastViewedPhoto(photoProvider);
-    });
-
-    itemPositionsListener.itemPositions.addListener(() {
-      final photoProvider = context.read<PhotoProvider>();
-      if (photoProvider.lastViewedPhotoId != null) {
-        _scrollToLastViewedPhoto(photoProvider);
       }
     });
   }
 
   @override
   void dispose() {
-    itemPositionsListener.itemPositions.removeListener(() {}); // Remove all listeners
     super.dispose();
   }
 
@@ -67,6 +59,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final photoProvider = context.watch<PhotoProvider>();
+
+    // 关键修复：在build方法中检查是否需要滚动
+    // 这确保了从详情页返回时，可以正确触发滚动
+    if (photoProvider.lastViewedPhotoId != null) {
+      _scrollToLastViewedPhoto(photoProvider);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -228,7 +226,38 @@ class _HomeScreenState extends State<HomeScreen> {
                   final photos = photoProvider.filteredPhotos;
 
                   if (photos.isEmpty && photoProvider.hasLoaded) {
-                    return const Center(child: Text('暂无照片'));
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.photo_library_outlined, size: 80, color: Colors.grey[400]),
+                            const SizedBox(height: 24),
+                            Text(
+                              '暂无照片',
+                              style: TextStyle(fontSize: 22, color: Colors.grey[600]),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              '请点击右上角的上传图标开始分享您的珍贵回忆',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 16, color: Colors.grey[500]),
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
+                              onPressed: () => context.push('/upload'),
+                              icon: const Icon(Icons.add_photo_alternate),
+                              label: const Text('上传第一张照片'),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                textStyle: const TextStyle(fontSize: 16),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
                   }
 
                   return PhotoGrid(
@@ -264,19 +293,21 @@ class _HomeScreenState extends State<HomeScreen> {
     final photos = photoProvider.filteredPhotos;
     final index = photos.indexWhere((p) => p.id == photoId);
 
+    // 无论是否找到，都清除标记，避免不必要的滚动
     photoProvider.lastViewedPhotoId = null;
 
     if (index != -1) {
+      // 计算在瀑布流中的行索引（假设每行2列）
       final rowIndex = index ~/ 2;
+      
+      // 使用addPostFrameCallback确保在UI渲染完成后再滚动
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
-          return;
-        }
-        if (itemScrollController.isAttached) {
+        if (mounted && itemScrollController.isAttached) {
           itemScrollController.scrollTo(
             index: rowIndex,
             duration: const Duration(milliseconds: 500),
             curve: Curves.easeInOut,
+            alignment: 0.5, // 滚动到屏幕中间，提供更好的上下文
           );
         }
       });

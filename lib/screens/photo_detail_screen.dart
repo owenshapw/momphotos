@@ -676,8 +676,6 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
 
     try {
       final int deletedIndex = _currentIndex;
-      final int photoCount = widget.photos.length;
-
       await photoProvider.deletePhoto(photo.id);
       if (!mounted) return;
 
@@ -685,29 +683,23 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
         const SnackBar(content: Text('照片删除成功！')),
       );
 
-      // 如果删除的是最后一张照片，则返回上一页
-      if (photoCount <= 1) {
-        navigator.pop();
-        return;
-      }
-
       // 获取更新后的照片列表
       final newPhotos = photoProvider.photos;
+
+      // 如果删除后没有照片了，直接返回主页
       if (newPhotos.isEmpty) {
         navigator.pop();
         return;
       }
 
       // 计算下一个要显示的索引
-      // 如果删除的是最后一张，新索引是新的最后一张
-      // 否则，新索引保持不变（因为后面的元素前移了）
       final newIndex = (deletedIndex < newPhotos.length) ? deletedIndex : newPhotos.length - 1;
       final Photo nextPhotoToShow = newPhotos[newIndex];
 
       // 关键：设置lastViewedPhotoId，便于瀑布流页面定位
       photoProvider.lastViewedPhotoId = nextPhotoToShow.id;
 
-      // 使用新数据替换当前页面
+      // 使用新数据替换当前页面，实现无缝切换
       navigator.pushReplacement('/photo-detail', extra: {
         'photo': nextPhotoToShow,
         'photos': newPhotos,
