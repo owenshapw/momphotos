@@ -2,7 +2,7 @@ name: momphotos
 description: "A photo management app with cloud storage and tagging features."
 publish_to: 'none'
 
-version: 1.0.1+3
+version: 1.0.3+1
 
 environment:
   sdk: ^3.8.1
