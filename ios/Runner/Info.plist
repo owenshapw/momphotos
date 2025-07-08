@@ -6,6 +6,10 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>zh_CN</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>妈妈的照片</string>
 	<key>CFBundleExecutable</key>
@@ -50,12 +54,11 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We need access to your photo library so you can upload photos of your family to the app and view them in your collection.</string>
+	<string>我们需要访问您的相册，以便您能上传和查看家庭照片。</string>
 	<key>NSCameraUsageDescription</key>
-	<string>We use the camera to let you take photos of your family and loved ones, so you can upload and organize them in the app.
-&lt;string&gt;We use the camera to let you take photos of your family and loved ones, so you can upload and organize them in the app.&lt;/string&gt;</string>
+	<string>我们需要使用您的相机，以便您能拍摄并上传家庭照片。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>We need permission to save photos to your photo library so you can keep a copy of your family moments captured in the app.</string>
+	<string>我们需要权限来将照片保存到您的相册中。</string>
 	<key>UIStatusBarHidden</key>
 	<false/>
 </dict>

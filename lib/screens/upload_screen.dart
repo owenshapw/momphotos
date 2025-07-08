@@ -92,15 +92,15 @@ class _UploadScreenState extends State<UploadScreen> {
       );
 
       if (mounted) {
+        // Set the scroll target to the newly uploaded photo
+        photoProvider.setScrollTarget(newPhoto.id);
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('照片上传成功！')),
         );
         
-        // 跳转到新上传的照片详情页
-        context.push('/photo-detail', extra: {
-          'photo': newPhoto,
-          'photos': photoProvider.photos,
-        });
+        // Pop back to the home screen, which will then handle the scrolling.
+        context.pop();
       }
     } catch (e) {
       if (mounted) {

@@ -244,11 +244,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   final scrollTargetId = photoProvider.scrollTargetId;
                   if (scrollTargetId != null) {
                     print('HomeScreen.build: Detected scrollTargetId: $scrollTargetId');
-                    WidgetsBinding.instance.addPostFrameCallback((_) async {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (!mounted) return;
                         
-                        await Future.delayed(const Duration(milliseconds: 50));
-
                         final provider = context.read<PhotoProvider>();
                         final freshPhotos = provider.filteredPhotos;
                         final index = freshPhotos.indexWhere((p) => p.id == scrollTargetId);
@@ -329,14 +327,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
                   if (photos.isEmpty && photoProvider.hasLoaded) {
                     return Container(
-                      color: const Color(0xFFF4F7F6), // mom.png底色
+                      color: Theme.of(context).scaffoldBackgroundColor, // 与其他页面背景色一致
                       width: double.infinity,
                       height: double.infinity,
                       child: Column(
                         children: [
                           const Spacer(flex: 2),
                           Image.asset(
-                            'assets/icon/mom.png',
+                            'assets/icon/momlogo.png',
                             width: 200,
                             height: 200,
                           ),

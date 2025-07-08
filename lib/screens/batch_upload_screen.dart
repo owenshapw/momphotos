@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:exif/exif.dart';
+import '../models/photo.dart';
 import '../services/photo_provider.dart';
 
 class BatchUploadScreen extends StatefulWidget {
@@ -164,23 +165,22 @@ class _BatchUploadScreenState extends State<BatchUploadScreen> {
       _totalImages = _selectedImages.length;
     });
 
+    final List<Photo> uploadedPhotos = [];
+
     try {
       for (int i = 0; i < _selectedImages.length; i++) {
         final imageFile = _selectedImages[i];
         
-        // 显示当前上传进度
         if (mounted) {
           setState(() {
             _uploadProgress = i + 1;
           });
         }
 
-        // 提取拍摄年份
         final year = await _extractYearFromExif(imageFile);
         
-        // 上传照片
         if (mounted) {
-          await context.read<PhotoProvider>().uploadPhoto(
+          final newPhoto = await context.read<PhotoProvider>().uploadPhoto(
             imagePath: imageFile.path,
             tags: _batchTags,
             year: year,
@@ -188,6 +188,7 @@ class _BatchUploadScreenState extends State<BatchUploadScreen> {
                 ? null
                 : _batchDescriptionController.text.trim(),
           );
+          uploadedPhotos.add(newPhoto);
         }
       }
 
@@ -199,14 +200,11 @@ class _BatchUploadScreenState extends State<BatchUploadScreen> {
           ),
         );
         
-        // 清空选择
-        setState(() {
-          _selectedImages.clear();
-          _batchTags.clear();
-          _batchDescriptionController.clear();
-        });
-        
-        // 返回上一页
+        // Set the scroll target to the first uploaded photo
+        if (uploadedPhotos.isNotEmpty) {
+          context.read<PhotoProvider>().setScrollTarget(uploadedPhotos.first.id);
+        }
+
         context.pop();
       }
     } catch (e) {
