@@ -244,8 +244,11 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
   }
 
   Future<void> _downloadPhoto(Photo photo) async {
+    // Before the async gap, capture the context-dependent services.
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
     try {
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('正在下载照片...')),
       );
       final response = await http.get(Uri.parse(photo.url));
@@ -256,7 +259,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
           await _downloadPhotoMobile(response.bodyBytes, photo.id);
         }
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          scaffoldMessenger.showSnackBar(
             const SnackBar(content: Text('照片下载成功！')),
           );
         }
@@ -265,7 +268,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           SnackBar(content: Text('下载失败: ${e.toString()}')),
         );
       }
@@ -273,13 +276,16 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
   }
 
   Future<void> _downloadPhotoMobile(Uint8List bytes, String photoId) async {
+    // Before the async gap, capture the context-dependent services.
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
     try {
       final status = await Permission.storage.status;
       if (!status.isGranted) {
         final result = await Permission.storage.request();
         if (!result.isGranted) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            scaffoldMessenger.showSnackBar(
               const SnackBar(content: Text('需要存储权限才能保存照片')),
             );
           }
@@ -293,7 +299,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
       );
       if (result['isSuccess'] == true) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          scaffoldMessenger.showSnackBar(
             const SnackBar(content: Text('照片已保存到相册')),
           );
         }
@@ -302,7 +308,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           SnackBar(content: Text('保存失败: $e')),
         );
       }
@@ -362,18 +368,18 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.white),
             onPressed: () async {
-              final photoProvider = context.read<PhotoProvider>();
+              final router = GoRouter.of(context);
               final currentPhotoId = currentPhotos[_currentIndex].id;
 
               // Push to the edit screen and wait for a result.
-              final editResult = await context.push('/photo-edit', extra: {
+              final editResult = await router.push('/photo-edit', extra: {
                 'photo': currentPhotos[_currentIndex],
               });
 
               // If the edit screen returns `true`, it means data was changed.
               // Pop the detail screen with the photo's ID to trigger a refresh on HomeScreen.
               if (editResult == true && mounted) {
-                context.pop(currentPhotoId);
+                router.pop(currentPhotoId);
               }
             },
           ),
@@ -495,6 +501,9 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
 
     if (confirmed != true) return;
 
+    // Before the async gap, capture the context-dependent services.
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
     final photoProvider = Provider.of<PhotoProvider>(context, listen: false);
     final initialIndex = _currentIndex;
 
@@ -502,14 +511,9 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
       await photoProvider.deletePhoto(photo.id);
       if (!mounted) return;
 
-      // After deletion, the provider's list is already updated.
-      // The `watch` in the build method will handle the rebuild.
-      // We just need to adjust the index locally.
-      
       final newTotal = currentPhotos.length - 1;
       if (newTotal <= 0) {
-        // If no photos left, pop with a special value indicating a refresh is needed.
-        context.pop('refresh_home');
+        router.pop('refresh_home');
         return;
       }
 
@@ -517,16 +521,15 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
           ? newTotal - 1
           : initialIndex;
       
-      // Pop with the ID of the next photo to view, signaling a refresh.
-      context.pop(currentPhotos[nextIndex].id);
+      router.pop(currentPhotos[nextIndex].id);
       
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('照片已删除')),
       );
 
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           SnackBar(content: Text('删除失败: ${e.toString()}')),
         );
       }

@@ -40,20 +40,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _deleteAccount() async {
+    // Before the async gap, capture the context-dependent services.
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+
     try {
       await AuthService.deleteAccount();
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('账户已注销')),
       );
 
-      GoRouter.of(context).go('/login');
+      router.go('/login');
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         SnackBar(content: Text('注销失败: $e')),
       );
     }
@@ -339,17 +343,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _logout() async {
+    // Before the async gap, capture the context-dependent services.
+    final photoProvider = context.read<PhotoProvider>();
+    final goRouter = GoRouter.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
     try {
-      if (!mounted) return;
-      final photoProvider = context.read<PhotoProvider>();
-      final goRouter = GoRouter.of(context);
       await AuthService.logout();
       if (!mounted) return;
       photoProvider.reset();
       goRouter.go('/login');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           SnackBar(content: Text('登出失败: ${e.toString()}')),
         );
       }
