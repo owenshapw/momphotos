@@ -7,7 +7,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:developer' as developer; // 添加这一行
 import '../models/photo.dart';
 import '../services/photo_provider.dart';
 import 'package:provider/provider.dart';
@@ -161,7 +160,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
           Text(
             '正在加载照片...',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withAlpha(204), // 80% opacity
               fontSize: 14,
             ),
           ),
@@ -364,28 +363,17 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
             icon: const Icon(Icons.edit, color: Colors.white),
             onPressed: () async {
               final photoProvider = context.read<PhotoProvider>();
-              final currentPhotoId = photoProvider.photos[_currentIndex].id; // Get ID of current photo
+              final currentPhotoId = currentPhotos[_currentIndex].id;
 
-              await context.push('/photo-edit', extra: {
-                'photo': photoProvider.photos[_currentIndex], // Pass the current photo
+              // Push to the edit screen and wait for a result.
+              final editResult = await context.push('/photo-edit', extra: {
+                'photo': currentPhotos[_currentIndex],
               });
 
-              if (mounted) {
-                // After returning, find the updated index of the *same* photo
-                final updatedPhotos = photoProvider.photos; // Get the potentially re-sorted list
-                final newIndex = updatedPhotos.indexWhere((p) => p.id == currentPhotoId);
-
-                if (newIndex != -1 && newIndex != _currentIndex) {
-                  // If the photo moved, update _currentIndex and jump the PageController
-                  setState(() {
-                    _currentIndex = newIndex;
-                  });
-                  _pageController.jumpToPage(newIndex);
-                } else if (newIndex != -1 && newIndex == _currentIndex) {
-                  // If photo didn't move but its data changed, just force a rebuild
-                  setState(() {});
-                }
-                // If newIndex is -1, it means the photo was deleted, which is handled by the build method's empty check.
+              // If the edit screen returns `true`, it means data was changed.
+              // Pop the detail screen with the photo's ID to trigger a refresh on HomeScreen.
+              if (editResult == true && mounted) {
+                context.pop(currentPhotoId);
               }
             },
           ),
@@ -520,17 +508,17 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
       
       final newTotal = currentPhotos.length - 1;
       if (newTotal <= 0) {
-        // If no photos left, we will pop in the build method.
+        // If no photos left, pop with a special value indicating a refresh is needed.
+        context.pop('refresh_home');
         return;
       }
 
       final nextIndex = initialIndex >= newTotal
           ? newTotal - 1
           : initialIndex;
-
-      // We don't need to call setState, as the provider will notify.
-      // But we need to jump the page controller to the correct new index.
-      _pageController.jumpToPage(nextIndex);
+      
+      // Pop with the ID of the next photo to view, signaling a refresh.
+      context.pop(currentPhotos[nextIndex].id);
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('照片已删除')),
@@ -548,10 +536,12 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
   void _onBack(List<Photo> currentPhotos) {
     final photoProvider = context.read<PhotoProvider>();
     if (currentPhotos.isNotEmpty && _currentIndex < currentPhotos.length) {
+      // For a normal return, just set the scroll target for a smooth scroll.
       photoProvider.setScrollTarget(currentPhotos[_currentIndex].id);
     } else {
       photoProvider.setScrollTarget(null);
     }
+    // Pop without a value to avoid triggering the refresh logic.
     context.pop();
   }
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-import 'dart:developer' as developer; // 添加这一行
 import '../services/photo_provider.dart';
 import '../services/auth_service.dart';
 import '../widgets/photo_grid.dart';
@@ -38,66 +37,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    // if (state == AppLifecycleState.resumed) {
-    //   developer.log('HomeScreen: didChangeAppLifecycleState - 应用从后台恢复。');
-    //   final photoProvider = context.read<PhotoProvider>();
-    //   if (photoProvider.lastViewedPhotoId != null) {
-    //     developer.log('HomeScreen: didChangeAppLifecycleState - 检测到 lastViewedPhotoId: ${photoProvider.lastViewedPhotoId}，尝试滚动。');
-    //     _scrollToLastViewedPhoto(photoProvider);
-    //   }
-    // }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // This logic is now handled by the result of the context.push() call
-    // in openPhotoDetail to avoid race conditions and conflicting scroll commands.
-  }
-
-  void _scrollToLastViewedPhoto(PhotoProvider photoProvider) {
-    final photoId = photoProvider.lastViewedPhotoId;
-    developer.log('HomeScreen: _scrollToLastViewedPhoto - 尝试滚动到照片ID: $photoId');
-    if (photoId == null) {
-      developer.log('HomeScreen: _scrollToLastViewedPhoto - photoId 为空，不执行滚动。');
-      return;
-    }
-
-    final photos = photoProvider.filteredPhotos;
-    final index = photos.indexWhere((p) => p.id == photoId);
-    developer.log('HomeScreen: _scrollToLastViewedPhoto - 找到照片索引: $index');
-
-    if (index != -1) {
-      final rowIndex = index ~/ 2;
-      developer.log('HomeScreen: _scrollToLastViewedPhoto - 计算出行索引: $rowIndex');
-      
-      // 使用addPostFrameCallback确保在UI渲染完成后再滚动
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && itemScrollController.isAttached) {
-          developer.log('HomeScreen: _scrollToLastViewedPhoto - 执行滚动到索引: $rowIndex');
-          itemScrollController.scrollTo(
-            index: rowIndex,
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeInOut,
-            alignment: 0.5, // 滚动到屏幕中间，提供更好的上下文
-          );
-          // 关键修复：只有在滚动指令成功发出后，才清除标记
-          photoProvider.lastViewedPhotoId = null;
-          developer.log('HomeScreen: _scrollToLastViewedPhoto - 滚动完成，清除 lastViewedPhotoId。');
-        } else {
-          developer.log('HomeScreen: _scrollToLastViewedPhoto - 无法滚动：mounted: $mounted, isAttached: ${itemScrollController.isAttached}');
-        }
-      });
-    } else {
-      // 如果在当前列表中找不到照片，也清除标记，避免无效循环
-      photoProvider.lastViewedPhotoId = null;
-      developer.log('HomeScreen: _scrollToLastViewedPhoto - 未找到照片，清除 lastViewedPhotoId。');
-    }
   }
 
   Future<void> _deleteAccount() async {
@@ -240,27 +179,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   final photoProvider = context.watch<PhotoProvider>();
                   final photos = photoProvider.filteredPhotos;
 
-                  // New, robust scroll logic with diagnostics
+                  // --- Mechanism A: Handle Smooth Scroll ---
                   final scrollTargetId = photoProvider.scrollTargetId;
                   if (scrollTargetId != null) {
-                    print('HomeScreen.build: Detected scrollTargetId: $scrollTargetId');
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!mounted) return;
-                        
-                        final provider = context.read<PhotoProvider>();
-                        final freshPhotos = provider.filteredPhotos;
-                        final index = freshPhotos.indexWhere((p) => p.id == scrollTargetId);
-
-                        if (index != -1) {
-                          final rowIndex = index ~/ 2;
-                          itemScrollController.jumpTo(index: rowIndex, alignment: 0.5);
-                        }
-                        
-                        provider.clearScrollTarget();
-                      });
+                      if (!mounted) return;
+                      final provider = context.read<PhotoProvider>();
+                      final index = provider.filteredPhotos.indexWhere((p) => p.id == scrollTargetId);
+                      if (index != -1) {
+                        final rowIndex = index ~/ 2;
+                        itemScrollController.jumpTo(index: rowIndex, alignment: 0.5);
+                      }
+                      // Clear the target so it doesn't scroll again on the next build.
+                      provider.clearScrollTarget();
+                    });
                   }
-
-                  // ... (rest of the build method, including error/loading/empty states)
 
                   if (photoProvider.isLoading && !photoProvider.hasLoaded) {
                     return const Center(
@@ -278,7 +211,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   }
 
                   if (photoProvider.error != null) {
-                    // ... error handling ...
                     if (photoProvider.error!.contains('未登录') || photoProvider.error!.contains('401')) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (ScaffoldMessenger.of(context).mounted) {
@@ -286,7 +218,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             const SnackBar(content: Text('登录状态已失效，请重新登录')),
                           );
                         }
-                        // Optional: auto-logout and redirect
                       });
                     }
                     return Center(
@@ -327,7 +258,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
                   if (photos.isEmpty && photoProvider.hasLoaded) {
                     return Container(
-                      color: Theme.of(context).scaffoldBackgroundColor, // 与其他页面背景色一致
+                      color: Theme.of(context).scaffoldBackgroundColor,
                       width: double.infinity,
                       height: double.infinity,
                       child: Column(
@@ -344,18 +275,52 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             textAlign: TextAlign.center,
                             style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                           ),
-                          const Spacer(flex: 3), // 让内容整体偏上
+                          const Spacer(flex: 3),
                         ],
                       ),
                     );
                   }
 
-                  // Simplified navigation logic
-                  void openPhotoDetail(Photo photo, List<Photo> currentPhotos) {
-                    context.push('/photo-detail', extra: {
+                  // New navigation logic to handle both smooth scroll and refresh
+                  void openPhotoDetail(Photo photo, List<Photo> currentPhotos) async {
+                    final photoProvider = context.read<PhotoProvider>();
+                    // Clear any previous scroll targets before navigating.
+                    photoProvider.clearScrollTarget();
+
+                    // Await the result from the detail screen.
+                    final result = await context.push('/photo-detail', extra: {
                       'photo': photo,
                       'photos': currentPhotos,
                     });
+
+                    // --- Mechanism B: Handle Refresh-and-Scroll ---
+                    // If a string is returned, it's a photo ID that requires a refresh.
+                    if (result is String && mounted) {
+                      final targetId = result;
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('列表已更新，正在定位...')),
+                      );
+                      
+                      await photoProvider.loadPhotos(forceRefresh: true);
+                      if (!mounted) return;
+
+                      // After refresh, find the photo in the new list.
+                      // Handle the special case where the last photo was deleted.
+                      final photos = photoProvider.filteredPhotos;
+                      if (photos.isEmpty) {
+                         ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                         return;
+                      }
+
+                      final index = photos.indexWhere((p) => p.id == targetId);
+                      if (index != -1) {
+                        final rowIndex = index ~/ 2;
+                        itemScrollController.jumpTo(index: rowIndex, alignment: 0.5);
+                      }
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    }
+                    // If result is null, Mechanism A (smooth scroll) will be handled by the build method.
                   }
 
                   return PhotoGrid(

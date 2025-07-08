@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../models/photo.dart';
 import '../services/photo_provider.dart';
-import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 class PhotoEditScreen extends StatefulWidget {
   final Photo photo;
@@ -23,11 +22,6 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
   int? _selectedYear;
   bool _isSaving = false;
 
-  // 新增：照片列表、当前索引、滚动控制器
-  late List<Photo> allPhotos;
-  late int _currentIndex;
-  final ItemScrollController itemScrollController = ItemScrollController();
-
   @override
   void initState() {
     super.initState();
@@ -35,9 +29,6 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
     _tags.addAll(widget.photo.tags);
     _selectedYear = widget.photo.year;
     _descriptionController.text = widget.photo.description ?? '';
-    // 初始化照片列表和当前索引
-    allPhotos = [widget.photo]; // 如有多张照片可改为 widget.photos
-    _currentIndex = 0;
   }
 
   @override
@@ -82,16 +73,13 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
             : _descriptionController.text.trim(),
       );
       if (!mounted) return;
-      await context.read<PhotoProvider>().loadPhotos(forceRefresh: true);
-      if (!mounted) return;
 
-      final photos = Provider.of<PhotoProvider>(context, listen: false).photos;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('保存成功！')),
       );
       
-      // 返回到前一个页面，并传递更新后的照片ID以便高亮
-      context.pop({'updatedPhotoId': widget.photo.id});
+      // Pop with `true` to signal that changes were saved.
+      context.pop(true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -109,26 +97,6 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (allPhotos.isEmpty) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => context.pop(),
-          ),
-        ),
-        body: const Center(
-          child: Text(
-            '没有照片可显示',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('编辑照片'),
@@ -454,21 +422,5 @@ class _PhotoEditScreenState extends State<PhotoEditScreen> {
         ],
       ),
     );
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final args = ModalRoute.of(context)?.settings.arguments as Map?;
-      final scrollToId = args != null ? args['scrollToId'] : null;
-      if (scrollToId != null) {
-        final photos = context.read<PhotoProvider>().photos;
-        final index = photos.indexWhere((p) => p.id == scrollToId);
-        if (index != -1 && itemScrollController.isAttached) {
-          itemScrollController.scrollTo(index: index ~/ 2, duration: Duration(milliseconds: 300));
-        }
-      }
-    });
   }
 } 
