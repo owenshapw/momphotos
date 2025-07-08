@@ -43,29 +43,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed) {
-      developer.log('HomeScreen: didChangeAppLifecycleState - 应用从后台恢复。');
-      final photoProvider = context.read<PhotoProvider>();
-      if (photoProvider.lastViewedPhotoId != null) {
-        developer.log('HomeScreen: didChangeAppLifecycleState - 检测到 lastViewedPhotoId: ${photoProvider.lastViewedPhotoId}，尝试滚动。');
-        _scrollToLastViewedPhoto(photoProvider);
-      }
-    }
+    // if (state == AppLifecycleState.resumed) {
+    //   developer.log('HomeScreen: didChangeAppLifecycleState - 应用从后台恢复。');
+    //   final photoProvider = context.read<PhotoProvider>();
+    //   if (photoProvider.lastViewedPhotoId != null) {
+    //     developer.log('HomeScreen: didChangeAppLifecycleState - 检测到 lastViewedPhotoId: ${photoProvider.lastViewedPhotoId}，尝试滚动。');
+    //     _scrollToLastViewedPhoto(photoProvider);
+    //   }
+    // }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args = GoRouterState.of(context).extra as Map?;
-    final scrollToId = args != null ? args['scrollToId'] : null;
-    if (scrollToId != null) {
-      final photos = context.read<PhotoProvider>().photos;
-      final index = photos.indexWhere((p) => p.id == scrollToId);
-      if (index != -1 && itemScrollController.isAttached) {
-        // 由于每行2张，需滚动到对应行
-        itemScrollController.scrollTo(index: index ~/ 2, duration: Duration(milliseconds: 300));
-      }
-    }
+    // This logic is now handled by the result of the context.push() call
+    // in openPhotoDetail to avoid race conditions and conflicting scroll commands.
   }
 
   void _scrollToLastViewedPhoto(PhotoProvider photoProvider) {
@@ -248,12 +240,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   final photoProvider = context.watch<PhotoProvider>();
                   final photos = photoProvider.filteredPhotos;
 
-                  // 兜底：如果已登录但还没加载且没在加载，自动拉取
-                  if (AuthService.isLoggedIn && !photoProvider.hasLoaded && !photoProvider.isLoading) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      context.read<PhotoProvider>().loadPhotos(forceRefresh: true);
-                    });
+                  // New, robust scroll logic with diagnostics
+                  final scrollTargetId = photoProvider.scrollTargetId;
+                  if (scrollTargetId != null) {
+                    print('HomeScreen.build: Detected scrollTargetId: $scrollTargetId');
+                    WidgetsBinding.instance.addPostFrameCallback((_) async {
+                        if (!mounted) return;
+                        
+                        await Future.delayed(const Duration(milliseconds: 50));
+
+                        final provider = context.read<PhotoProvider>();
+                        final freshPhotos = provider.filteredPhotos;
+                        final index = freshPhotos.indexWhere((p) => p.id == scrollTargetId);
+
+                        if (index != -1) {
+                          final rowIndex = index ~/ 2;
+                          itemScrollController.jumpTo(index: rowIndex, alignment: 0.5);
+                        }
+                        
+                        provider.clearScrollTarget();
+                      });
                   }
+
+                  // ... (rest of the build method, including error/loading/empty states)
 
                   if (photoProvider.isLoading && !photoProvider.hasLoaded) {
                     return const Center(
@@ -271,7 +280,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   }
 
                   if (photoProvider.error != null) {
-                    // 新增：如果是未登录错误，弹窗提示而不是直接跳转
+                    // ... error handling ...
                     if (photoProvider.error!.contains('未登录') || photoProvider.error!.contains('401')) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (ScaffoldMessenger.of(context).mounted) {
@@ -279,9 +288,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             const SnackBar(content: Text('登录状态已失效，请重新登录')),
                           );
                         }
-                        // 可选：自动登出并跳转登录页（如需自动跳转可放开下面两行）
-                        // context.read<PhotoProvider>().reset();
-                        // GoRouter.of(context).go('/login');
+                        // Optional: auto-logout and redirect
                       });
                     }
                     return Center(
@@ -345,30 +352,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     );
                   }
 
-                  // 1. 定义打开详情页的方法，带参数跳转并处理返回
-                  void openPhotoDetail(Photo photo, List<Photo> photos) async {
-                    final result = await context.push('/photo-detail', extra: {
+                  // Simplified navigation logic
+                  void openPhotoDetail(Photo photo, List<Photo> currentPhotos) {
+                    context.push('/photo-detail', extra: {
                       'photo': photo,
-                      'photos': photos,
+                      'photos': currentPhotos,
                     });
-                    if (result is Map && result['scrollToId'] != null) {
-                      final scrollToId = result['scrollToId'];
-                      if (scrollToId != null) {
-                        // 自动滚动到目标照片
-                        final index = photos.indexWhere((p) => p.id == scrollToId);
-                        if (index != -1) {
-                          itemScrollController.scrollTo(index: index, duration: const Duration(milliseconds: 400));
-                        }
-                      }
-                    }
                   }
 
-                  // 2. 传递openPhotoDetail给PhotoGrid，点击缩略图时调用
                   return PhotoGrid(
                     photos: photos,
                     itemScrollController: itemScrollController,
                     itemPositionsListener: itemPositionsListener,
-                    onPhotoTap: (photo) => openPhotoDetail(photo, photos), // 传递点击回调
+                    onPhotoTap: (photo) => openPhotoDetail(photo, photos),
                   );
                 },
               ),

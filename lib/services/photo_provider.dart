@@ -17,6 +17,7 @@ class PhotoProvider with ChangeNotifier {
   bool _hasLoaded = false;
   String? _lastLoadedUserId;
   String? lastViewedPhotoId;
+  String? _scrollTargetId;
 
   List<Photo> get photos => _photos;
   List<Photo> get filteredPhotos => _filteredPhotos;
@@ -25,6 +26,18 @@ class PhotoProvider with ChangeNotifier {
   String get searchQuery => _searchQuery;
   List<String> get searchHistory => List.unmodifiable(_searchHistory);
   bool get hasLoaded => _hasLoaded;
+  String? get scrollTargetId => _scrollTargetId;
+
+  void setScrollTarget(String? photoId) {
+    _scrollTargetId = photoId;
+    // We don't notify listeners here, because this is a one-time command,
+    // not a state change that should trigger a rebuild everywhere.
+    // The HomeScreen will read this value during its next build.
+  }
+
+  void clearScrollTarget() {
+    _scrollTargetId = null;
+  }
 
   Set<String> get allTags {
     final Set<String> tags = {};

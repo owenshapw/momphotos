@@ -735,10 +735,13 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
 
   // 返回按钮或其它返回逻辑中，返回瀑布流并传递当前照片id
   void _onBack() {
-    if (allPhotos.isNotEmpty) {
-      context.pop({'scrollToId': allPhotos[_currentIndex].id});
+    final photoProvider = context.read<PhotoProvider>();
+    if (allPhotos.isNotEmpty && _currentIndex < allPhotos.length) {
+      final targetId = allPhotos[_currentIndex].id;
+      photoProvider.setScrollTarget(targetId);
     } else {
-      context.pop({'scrollToId': null});
+      photoProvider.setScrollTarget(null);
     }
+    context.pop();
   }
 }
